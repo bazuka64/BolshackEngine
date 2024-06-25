@@ -2,10 +2,10 @@
 
 struct BinaryReader {
 
-	char* data;
+	byte* data;
 	int position = 0;
 
-	BinaryReader(char* data) :data(data) {}
+	BinaryReader(byte* data) :data(data) {}
 
 	void Seek(int size) {
 		position += size;

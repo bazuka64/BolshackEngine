@@ -112,10 +112,11 @@ struct MMDModel {
 	float anim_frame = 0;
 	glm::mat4 world{ 1 };
 	bool debug = false;
+	sf::Music* music = NULL;
 
 	MMDModel(const std::wstring& path) {
 
-		std::vector<char> data = File::ReadAllBytes(path);
+		std::vector<byte> data = File::ReadAllBytes(path);
 		BinaryReader br(data.data());
 
 		br.Seek(9);
@@ -395,8 +396,14 @@ struct MMDModel {
 
 	void Update(float dt) {
 
-		anim_frame += dt * 30;
-		anim_frame = fmodf(anim_frame, (float)anim->max_frame);
+		if (anim) {
+			anim_frame += dt * 30;
+			if (anim_frame > anim->max_frame) {
+				anim_frame = fmodf(anim_frame, (float)anim->max_frame);
+				music->stop();
+				music->play();
+			}
+		}
 
 		for (Bone& bone : bones) {
 
@@ -444,6 +451,7 @@ struct MMDModel {
 
 		ProcessIK();
 
+		// append parent
 		for (Bone* bone : append_bones) {
 			if (bone->flag & BoneFlag::rotate_append)
 				bone->Rotation = bone->append_parent->Rotation;
@@ -602,8 +610,9 @@ struct MMDModel {
 		glEnable(GL_DEPTH_TEST);
 	}
 
-	void SetAnimation(VMDAnimation* anim) {
+	void SetAnimation(VMDAnimation* anim, sf::Music* music) {
 		this->anim = anim;
 		anim_frame = 0;
+		this->music = music;
 	}
 };

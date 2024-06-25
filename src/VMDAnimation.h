@@ -13,20 +13,21 @@ struct VMDAnimation {
 		float weight;
 	};
 
-	std::unordered_map<std::wstring, std::vector<BoneFrame>> bone_map;
-	std::unordered_map<std::wstring, std::vector<MorphFrame>> morph_map;
+	std::map<std::wstring, std::vector<BoneFrame>> bone_map;
+	std::map<std::wstring, std::vector<MorphFrame>> morph_map;
 
 	int max_frame;
+	fs::path path;
 
-	VMDAnimation(const std::wstring& path) {
+	VMDAnimation(fs::path& path) :path(path) {
 
-		std::vector<char> data = File::ReadAllBytes(path);
+		std::vector<byte> data = File::ReadAllBytes(path.wstring());
 		BinaryReader br(data.data());
 
 		br.Seek(50);
 
 		int bone_count = br.ReadInt();
-		std::unordered_map<std::string, std::wstring> bone_name_map;
+		std::map<std::string, std::wstring> bone_name_map;
 		for (int i = 0; i < bone_count; i++) {
 
 			std::string name(15, 0);
@@ -60,7 +61,7 @@ struct VMDAnimation {
 		}
 
 		int morph_count = br.ReadInt();
-		std::unordered_map<std::string, std::wstring> morph_name_map;
+		std::map<std::string, std::wstring> morph_name_map;
 		for (int i = 0; i < morph_count; i++) {
 
 			std::string name(15, 0);

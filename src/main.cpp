@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include <stack>
 #include <algorithm>
 #include <thread>
@@ -19,20 +19,18 @@ namespace fs = std::filesystem;
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <SFML/Audio.hpp>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+#include <imgui/backends/imgui_impl_opengl3.h>
 
 typedef unsigned char byte;
 typedef unsigned short ushort;
 typedef unsigned int uint;
 
 template <typename T>
-void print(T x) {
-	std::cout << x << std::endl;
-}
-
+void print(T x) { std::cout << x << std::endl; }
 template <typename T>
-void printw(T x) {
-	std::wcout << x << std::endl;
-}
+void printw(T x) { std::wcout << x << std::endl; }
 
 #include "File.h"
 #include "Shader.h"
@@ -57,7 +55,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
-							
+
 int main() {
 
 	const int width = 1920, height = 1080;
@@ -70,16 +68,21 @@ int main() {
 	stbi_set_flip_vertically_on_load(true);
 	setlocale(LC_CTYPE, "");
 
+	glfwSetKeyCallback(window, KeyCallback);
+	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
+	glfwSetMouseButtonCallback(window, MouseButtonCallback);
+
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 	int xpos = (mode->width - width) / 2;
 	int ypos = (mode->height - height) / 2;
 	glfwSetWindowPos(window, xpos, ypos);
 	glfwShowWindow(window);
+	glfwMaximizeWindow(window);
 
-	glfwSetKeyCallback(window, KeyCallback);
-	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-	glfwSetMouseButtonCallback(window, MouseButtonCallback);
+	ImGui::CreateContext();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init();
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -88,13 +91,20 @@ int main() {
 	Shader shader(L"shader/shader.vert", L"shader/shader.frag");
 	Camera camera;
 	MMDModel model(L"res/model/meirin/meirin.pmx");
-	VMDAnimation anim(L"res/motion/zettai/zettai.vmd");
-	//VMDAnimation anim(L"res/motion/2.走り86L_ダッシュ加速_(14f_前移動60)修正.vmd");
-	model.SetAnimation(&anim);
 
-	/*sf::Music music;
-	if (!music.openFromFile("res/motion/zettai/zettai.wav"))throw;
-	music.play();*/
+	std::vector<VMDAnimation*> animations;
+	std::vector<sf::Music*> musics;
+	sf::Music* cur_music = NULL;
+	for (auto& entry : fs::directory_iterator("res/motion/dance/")) {
+		const fs::path& path = entry.path();
+		fs::path dance_path = path.string() + "/" + path.stem().string() + ".vmd";
+		animations.push_back(new VMDAnimation(dance_path));
+
+		fs::path music_path = path.string() + "/" + path.stem().string() + ".wav";
+		musics.push_back(new sf::Music);
+		sf::Music* music = musics.back();
+		if (!music->openFromFile(music_path.string()))throw;
+	}
 
 	float prev_time = (float)glfwGetTime();
 	glm::ivec2 prev_pos(0);
@@ -119,6 +129,24 @@ int main() {
 		camera.Update(window, dt, delta_pos);
 		model.Update(dt);
 		model.Draw(shader, camera);
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		for (int i = 0; i < animations.size(); i++) {
+			VMDAnimation* anim = animations[i];
+			sf::Music* music = musics[i];
+			if (ImGui::Button(anim->path.filename().string().c_str())) {
+				model.SetAnimation(anim, music);
+				if (cur_music)cur_music->stop();
+				cur_music = music;
+				music->play();
+			}
+		}
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

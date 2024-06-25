@@ -3,12 +3,12 @@
 struct Shader {
 
 	GLuint program;
-	std::unordered_map<std::string, GLint> uniforms;
+	std::map<std::string, GLint> uniforms;
 
 	Shader(const std::wstring& vertPath, const std::wstring& fragPath) {
 
-		std::vector<char> data = File::ReadAllBytes(vertPath);
-		const char* c_str = data.data();
+		std::vector<byte> data = File::ReadAllBytes(vertPath);
+		const char* c_str = (char*)data.data();
 		GLuint vertex = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertex, 1, &c_str, 0);
 		glCompileShader(vertex);
@@ -23,7 +23,7 @@ struct Shader {
 		}
 
 		data = File::ReadAllBytes(fragPath);
-		c_str = data.data();
+		c_str = (char*)data.data();
 		GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragment, 1, &c_str, 0);
 		glCompileShader(fragment);

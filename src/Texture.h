@@ -6,9 +6,9 @@ struct Texture {
 
 	void Load(const std::wstring& path) {
 
-		std::vector<char> data = File::ReadAllBytes(path);
+		std::vector<byte> data = File::ReadAllBytes(path);
 		int x, y, comp;
-		byte* pixels = stbi_load_from_memory((byte*)data.data(), (int)data.size(), &x, &y, &comp, 4);
+		byte* pixels = stbi_load_from_memory(data.data(), (int)data.size(), &x, &y, &comp, 4);
 
 		glGenTextures(1, &id);
 		glBindTexture(GL_TEXTURE_2D, id);
