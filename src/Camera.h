@@ -2,13 +2,15 @@
 
 struct Camera {
 
-	glm::vec3 position{ 0,10,30 };
-	glm::vec3 target{ 0,10,0 };
+	const glm::vec3 initial_pos{ 0,10 * 20,30 * 20 };
+
+	glm::vec3 position = initial_pos;
+	glm::vec3 target{ 0,10*20,0 };
 	float fov = 45;
 	float aspect = 16.f / 9.f;
-	float znear = .1f;
-	float zfar = 1000;
-	float speed = 10;
+	float znear = 1;
+	float zfar = 100000;
+	float speed = 1000;
 	float sensitivity = .1f;
 
 	glm::mat4 view, proj;
@@ -16,6 +18,15 @@ struct Camera {
 	float yaw, pitch;
 
 	Camera() {
+		front = glm::normalize(target - position);
+		right = glm::normalize(glm::cross(front, glm::vec3(0, 1, 0)));
+		up = glm::normalize(glm::cross(right, front));
+		yaw = glm::degrees(atan2(front.z, front.x));
+		pitch = glm::degrees(asin(front.y));
+	}
+
+	void LookAt(const glm::vec3& new_target) {
+		target = new_target;
 		front = glm::normalize(target - position);
 		right = glm::normalize(glm::cross(front, glm::vec3(0, 1, 0)));
 		up = glm::normalize(glm::cross(right, front));

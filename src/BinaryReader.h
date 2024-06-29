@@ -58,7 +58,7 @@ struct BinaryReader {
 		return value;
 	}
 
-	int Read124(int size) {
+	int ReadSize(int size) {
 		switch (size) {
 		case 1: return ReadChar();
 		case 2: return ReadShort();
@@ -67,7 +67,7 @@ struct BinaryReader {
 		}
 	}
 
-	int ReadU124(int size) {
+	int ReadUSize(int size) {
 		switch (size) {
 		case 1: return ReadByte();
 		case 2: return ReadUShort();

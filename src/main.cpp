@@ -6,6 +6,7 @@
 #include <stack>
 #include <algorithm>
 #include <thread>
+#include <format>
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -28,9 +29,9 @@ typedef unsigned short ushort;
 typedef unsigned int uint;
 
 template <typename T>
-void print(T x) { std::cout << x << std::endl; }
+void print(T x) { std::cout << x << "\n"; }
 template <typename T>
-void printw(T x) { std::wcout << x << std::endl; }
+void printw(T x) { std::wcout << x << L"\n"; }
 
 #include "File.h"
 #include "Shader.h"
@@ -39,6 +40,13 @@ void printw(T x) { std::wcout << x << std::endl; }
 #include "BinaryReader.h"
 #include "VMDAnimation.h"
 #include "MMDModel.h"
+
+#include "libmio0.h"
+#include "ROM.h"
+#include "Script.h"
+#include "Fast3DScript.h"
+#include "GeoScript.h"
+#include "LevelScript.h"
 
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
@@ -79,6 +87,7 @@ int main() {
 	glfwSetWindowPos(window, xpos, ypos);
 	glfwShowWindow(window);
 	glfwMaximizeWindow(window);
+	glfwSwapBuffers(window);
 
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -88,23 +97,47 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	Shader shader(L"shader/shader.vert", L"shader/shader.frag");
+	Shader mmd_shader("shader/mmd.vert", "shader/mmd.frag");
+	Shader sm64_shader("shader/sm64.vert", "shader/sm64.frag");
 	Camera camera;
-	MMDModel model(L"res/model/meirin/meirin.pmx");
+
+	float distance = 7.5f * 20;
+	std::vector<MMDModel*> models;
+	MMDModel* meirin = new MMDModel("res/model/meirin/meirin.pmx");
+	meirin->local_pos = glm::vec3(distance, 0, 0);
+	meirin->world[3] = glm::vec4(meirin->local_pos, 1);
+	models.push_back(meirin);
+	MMDModel* mima = new MMDModel("res/model/mima/mima.pmx");
+	mima->local_pos = glm::vec3(-distance, 0, 0);
+	mima->world[3] = glm::vec4(mima->local_pos, 1);
+	models.push_back(mima);
 
 	std::vector<VMDAnimation*> animations;
 	std::vector<sf::Music*> musics;
 	sf::Music* cur_music = NULL;
 	for (auto& entry : fs::directory_iterator("res/motion/dance/")) {
 		const fs::path& path = entry.path();
-		fs::path dance_path = path.string() + "/" + path.stem().string() + ".vmd";
+		std::string dance_path = path.string() + "/" + path.stem().string() + ".vmd";
 		animations.push_back(new VMDAnimation(dance_path));
 
-		fs::path music_path = path.string() + "/" + path.stem().string() + ".wav";
+		std::string music_path = path.string() + "/" + path.stem().string() + ".wav";
 		musics.push_back(new sf::Music);
 		sf::Music* music = musics.back();
-		if (!music->openFromFile(music_path.string()))throw;
+		if (!music->openFromFile(music_path))throw;
 	}
+
+	VMDAnimation* idle = new VMDAnimation("res/motion/1.‚Ú‚ñ‚â‚è‘Ò‚¿_(490f_ˆÚ“®‚È‚µ).vmd");
+	for (auto model : models)
+		model->SetAnimation(idle, NULL);
+
+	ROM* rom = NULL;
+	if (fs::exists("res/roms/baserom.us.z64"))
+		rom = new ROM("res/roms/baserom.us.z64");
+	//ROM rom("res/roms/Super Mario Star Road 1.0.z64");
+	//ROM rom("res/roms/Super Mario 74 (v1.8) (LinCrash edit).z64");
+	//ROM rom("res/roms/Star Revenge 6.25 - LADX v1.1.z64");
+	//ROM rom("res/roms/SM64 Last Impact V1.2.z64");
+	Level* level = NULL;
 
 	float prev_time = (float)glfwGetTime();
 	glm::ivec2 prev_pos(0);
@@ -127,18 +160,68 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		camera.Update(window, dt, delta_pos);
-		model.Update(dt);
-		model.Draw(shader, camera);
+
+		for (MMDModel* model : models)
+			model->Update(dt);
+
+		for (MMDModel* model : models)
+			model->Draw(mmd_shader, camera);
+
+		sm64_shader.Use();
+		glm::mat4 WVP = camera.proj * camera.view;
+		glUniformMatrix4fv(sm64_shader.uniforms["WVP"], 1, false, (float*)&WVP);
+
+		if (level) {
+			Area* area = level->areas[level->start_area];
+			if (area) {
+				for (DisplayList* dl : area->model->dls) {
+					dl->Draw(sm64_shader);
+				}
+			}
+		}
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
+		if (ImGui::Button("Debug")) {
+			for (MMDModel* model : models)
+				model->debug = !model->debug;
+			static bool WireFrame = false;
+			if (WireFrame)glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			else glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			WireFrame = !WireFrame;
+		}
+
+		if (rom) {
+			ImGui::Separator();
+			for (int i = 0; i < LevelNum.size(); i++) {
+				if (i <= 3 || i == 32 || i == 35 || i >= 37)continue;
+				static int selected = -1;
+				if (ImGui::RadioButton(std::format("0x{:02X} {}", i, LevelNum[i]).c_str(), &selected, i)) {
+					level = LevelScript::parse(*rom, i);
+					for (auto model : models)
+						model->world[3] = glm::vec4(level->start_pos + model->local_pos, 1);
+					camera.position = camera.initial_pos + level->start_pos;
+					camera.LookAt(camera.position + glm::vec3(0, 0, -1));
+				}
+			}
+		}
+
+		ImGui::Separator();
+
+		if (ImGui::Button("idle")) {
+			for (MMDModel* model : models)
+				model->SetAnimation(idle, NULL);
+			if (cur_music)cur_music->stop();
+			cur_music = NULL;
+		}
 		for (int i = 0; i < animations.size(); i++) {
 			VMDAnimation* anim = animations[i];
 			sf::Music* music = musics[i];
 			if (ImGui::Button(anim->path.filename().string().c_str())) {
-				model.SetAnimation(anim, music);
+				for (MMDModel* model : models)
+					model->SetAnimation(anim, music);
 				if (cur_music)cur_music->stop();
 				cur_music = music;
 				music->play();

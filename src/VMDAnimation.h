@@ -19,9 +19,9 @@ struct VMDAnimation {
 	int max_frame;
 	fs::path path;
 
-	VMDAnimation(fs::path& path) :path(path) {
+	VMDAnimation(const fs::path& path) :path(path) {
 
-		std::vector<byte> data = File::ReadAllBytes(path.wstring());
+		std::vector<byte> data = File::ReadAllBytes(path.string());
 		BinaryReader br(data.data());
 
 		br.Seek(50);

@@ -105,7 +105,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include;include/imgui</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,10 +142,16 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Fast3DScript.h" />
+    <ClInclude Include="src\GeoScript.h" />
+    <ClInclude Include="src\LevelScript.h" />
+    <ClInclude Include="src\libmio0.h" />
+    <ClInclude Include="src\ROM.h" />
     <ClInclude Include="src\BinaryReader.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\MMDModel.h" />
+    <ClInclude Include="src\Script.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\VMDAnimation.h" />

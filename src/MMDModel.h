@@ -11,7 +11,7 @@ struct MMDModel {
 		char flag;
 	};
 	std::vector<Material> materials;
-	std::vector<Texture> textures;
+	std::vector<Texture*> textures;
 
 	enum BoneFlag : ushort {
 		connection = 0x0001,
@@ -110,11 +110,12 @@ struct MMDModel {
 
 	VMDAnimation* anim = NULL;
 	float anim_frame = 0;
-	glm::mat4 world{ 1 };
+	glm::mat4 world = glm::scale(glm::mat4(1), glm::vec3(20));
+	glm::vec3 local_pos{};
 	bool debug = false;
 	sf::Music* music = NULL;
 
-	MMDModel(const std::wstring& path) {
+	MMDModel(const std::string& path) {
 
 		std::vector<byte> data = File::ReadAllBytes(path);
 		BinaryReader br(data.data());
@@ -159,20 +160,20 @@ struct MMDModel {
 			char skinning_type = br.ReadChar();
 			switch (skinning_type) {
 			case 0: // bdef1
-				vertex.bones[0] = br.Read124(header.bone);
+				vertex.bones[0] = br.ReadSize(header.bone);
 				vertex.weights[0] = 1;
 				break;
 			case 1: // bdef2
 			case 3: // sdef
 				for (int i = 0; i < 2; i++)
-					vertex.bones[i] = br.Read124(header.bone);
+					vertex.bones[i] = br.ReadSize(header.bone);
 				vertex.weights[0] = br.ReadFloat();
 				vertex.weights[1] = 1 - vertex.weights[0];
 				if (skinning_type == 3)br.Seek(12 + 12 + 12);
 				break;
 			case 2: // bdef4
 				for (int i = 0; i < 4; i++)
-					vertex.bones[i] = br.Read124(header.bone);
+					vertex.bones[i] = br.ReadSize(header.bone);
 				br.Read(&vertex.weights, 4 * 4);
 				break;
 			}
@@ -184,7 +185,7 @@ struct MMDModel {
 		int index_count = br.ReadInt();
 		std::vector<uint> indices(index_count);
 		for (int i = 0; i < index_count; i++)
-			indices[i] = br.ReadU124(header.vertex);
+			indices[i] = br.ReadUSize(header.vertex);
 		for (int i = 0; i < index_count / 3; i++)
 			std::swap(indices[i * 3 + 0], indices[i * 3 + 1]);
 
@@ -214,13 +215,14 @@ struct MMDModel {
 
 		// texture
 		int texture_count = br.ReadInt();
-		textures.resize(texture_count);
-		std::wstring dir = path.substr(0, path.find_last_of(L"/") + 1);
-		for (Texture& texture : textures) {
+		textures.reserve(texture_count);
+		std::string dir = path.substr(0, path.find_last_of("/") + 1);
+		std::wstring wdir(dir.begin(), dir.end());
+		for (int i = 0; i < texture_count; i++) {
 			int size = br.ReadInt();
 			std::wstring name(size / 2, 0);
 			br.Read(&name.front(), size);
-			texture.Load(dir + name);
+			textures.push_back(new Texture(wdir + name));
 		}
 
 		// material
@@ -240,7 +242,7 @@ struct MMDModel {
 			material.flag = br.ReadChar();
 			br.Seek(16 + 4);
 
-			material.diffuse_texture = br.Read124(header.texture);
+			material.diffuse_texture = br.ReadSize(header.texture);
 			br.Seek(header.texture + 1); // sphere texture and mode
 			char toon_flag = br.ReadChar();
 			if (toon_flag == 0)br.Seek(header.texture);
@@ -272,7 +274,7 @@ struct MMDModel {
 			bone.position.z *= -1;
 			bone.InverseBindPose = glm::translate(glm::mat4(1), -bone.position);
 
-			int parent = br.Read124(header.bone);
+			int parent = br.ReadSize(header.bone);
 			if (parent != -1) {
 				bone.parent = &bones[parent];
 				bone.FromParent = bone.position - bone.parent->position;
@@ -290,13 +292,13 @@ struct MMDModel {
 				bone.offset.z *= -1;
 			}
 			else {
-				int child = br.Read124(header.bone);
+				int child = br.ReadSize(header.bone);
 				if (child != -1)bone.child = &bones[child];
 			}
 
 			if (bone.flag & rotate_append || bone.flag & translate_append) {
 				append_bones.push_back(&bone);
-				int append_parent = br.Read124(header.bone);
+				int append_parent = br.ReadSize(header.bone);
 				bone.append_parent = &bones[append_parent];
 				bone.append_weight = br.ReadFloat();
 			}
@@ -308,7 +310,7 @@ struct MMDModel {
 			if (bone.flag & ik) {
 				ik_bones.push_back(&bone);
 
-				int target_bone = br.Read124(header.bone);
+				int target_bone = br.ReadSize(header.bone);
 				bone.target_bone = &bones[target_bone];
 				bone.loop_count = br.ReadInt();
 				bone.angle_limit = br.ReadFloat();
@@ -316,7 +318,7 @@ struct MMDModel {
 				bone.links.resize(link_count);
 
 				for (Bone::IKLink& link : bone.links) {
-					int link_bone = br.Read124(header.bone);
+					int link_bone = br.ReadSize(header.bone);
 					link.link_bone = &bones[link_bone];
 					link.link_bone->is_link_bone = true;
 					link.angle_lock = br.ReadChar();
@@ -356,14 +358,14 @@ struct MMDModel {
 			case 0: // group
 				morph.group_morphs.resize(morph.offset_count);
 				for (Morph::GroupMorph& group_morph : morph.group_morphs) {
-					group_morph.morph = br.Read124(header.morph);
+					group_morph.morph = br.ReadSize(header.morph);
 					group_morph.weight = br.ReadFloat();
 				}
 				break;
 			case 1: // vertex
 				morph.vertex_morphs.resize(morph.offset_count);
 				for (Morph::VertexMorph& vertex_morph : morph.vertex_morphs) {
-					vertex_morph.vertex = br.Read124(header.vertex);
+					vertex_morph.vertex = br.ReadSize(header.vertex);
 					br.Read(&vertex_morph.offset, 12);
 					vertex_morph.offset.z *= -1;
 				}
@@ -400,8 +402,10 @@ struct MMDModel {
 			anim_frame += dt * 30;
 			if (anim_frame > anim->max_frame) {
 				anim_frame = fmodf(anim_frame, (float)anim->max_frame);
-				music->stop();
-				music->play();
+				if (music) {
+					music->stop();
+					music->play();
+				}
 			}
 		}
 
@@ -569,7 +573,7 @@ struct MMDModel {
 		for (Material& material : materials) {
 
 			if (material.diffuse_texture != -1)
-				glBindTexture(GL_TEXTURE_2D, textures[material.diffuse_texture].id);
+				glBindTexture(GL_TEXTURE_2D, textures[material.diffuse_texture]->id);
 
 			if (material.flag & 0x01)glDisable(GL_CULL_FACE);
 			else glEnable(GL_CULL_FACE);
@@ -578,6 +582,8 @@ struct MMDModel {
 
 			glBindTexture(GL_TEXTURE_2D, 0);
 		}
+
+		glEnable(GL_CULL_FACE);
 
 		if (debug)DrawDebug(camera);
 	}
@@ -608,6 +614,7 @@ struct MMDModel {
 		glEnd();
 
 		glEnable(GL_DEPTH_TEST);
+		glLineWidth(1);
 	}
 
 	void SetAnimation(VMDAnimation* anim, sf::Music* music) {

@@ -5,7 +5,7 @@ struct Shader {
 	GLuint program;
 	std::map<std::string, GLint> uniforms;
 
-	Shader(const std::wstring& vertPath, const std::wstring& fragPath) {
+	Shader(const std::string& vertPath, const std::string& fragPath) {
 
 		std::vector<byte> data = File::ReadAllBytes(vertPath);
 		const char* c_str = (char*)data.data();
