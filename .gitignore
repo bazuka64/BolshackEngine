@@ -1,4 +1,4 @@
-res/roms/*
+res/roms/*.z64
 .vs/
 *.user
 BolshackEngine/
