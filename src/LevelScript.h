@@ -10,7 +10,7 @@ struct Level {
 	glm::vec3 start_pos;
 };
 
-struct LevelScript : Script {
+struct LevelScript : Script{
 
 	static const bool debug = false;
 	static void print(const char* str) {

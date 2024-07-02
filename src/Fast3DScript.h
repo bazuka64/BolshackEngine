@@ -1,61 +1,5 @@
 #pragma once
 
-struct Vertex {
-	short x, y, z;
-	float u, v;
-};
-
-struct DisplayList {
-
-	byte layer;
-
-	GLuint vao, vbo;
-	std::vector<Vertex> vertices;
-	std::vector<Texture*> textures;
-
-	struct Mesh {
-		int vertex_offset;
-		int vertex_count;
-	};
-	std::vector<Mesh> meshes;
-
-	void BuildBuffers() {
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
-		glGenBuffers(1, &vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_SHORT, false, sizeof(Vertex), (void*)offsetof(Vertex, x));
-
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 2, GL_FLOAT, false, sizeof(Vertex), (void*)offsetof(Vertex, u));
-	}
-
-	void Draw(Shader& shader) {
-
-		// LAYER_TRANSPARENT_DECAL 6 の場合、木の陰は非表示
-		// LAYER_OPAQUE_DECAL      2 の場合、ドアの周りは非表示
-		if (layer == 6 || layer == 2)return;
-
-		shader.Use();
-		glBindVertexArray(vao);
-
-		for (int i = 0; i < meshes.size(); i++) {
-			Mesh& mesh = meshes[i];
-
-			if (textures[i])
-				glBindTexture(GL_TEXTURE_2D, textures[i]->id);
-
-			glDrawArrays(GL_TRIANGLES, mesh.vertex_offset, mesh.vertex_count);
-
-			glBindTexture(GL_TEXTURE_2D, 0);
-		}
-
-	}
-};
-
 struct Fast3DScript : Script {
 
 	static const bool debug = false;
@@ -90,17 +34,18 @@ struct Fast3DScript : Script {
 
 				byte* ptr = rom.segments[seg].data() + off;
 
-				for (int i = dest_off; i < dest_off + num; i++) {
-					buffer[i].x = Read(ptr, i * sizeof(F3DVertex) + 0, 2);
-					buffer[i].y = Read(ptr, i * sizeof(F3DVertex) + 2, 2);
-					buffer[i].z = Read(ptr, i * sizeof(F3DVertex) + 4, 2);
-					buffer[i].f = Read(ptr, i * sizeof(F3DVertex) + 6, 2);
-					buffer[i].u = Read(ptr, i * sizeof(F3DVertex) + 8, 2);
-					buffer[i].v = Read(ptr, i * sizeof(F3DVertex) + 10, 2);
-					buffer[i].r_nx = ptr[i * sizeof(F3DVertex) + 12];
-					buffer[i].g_ny = ptr[i * sizeof(F3DVertex) + 13];
-					buffer[i].b_nz = ptr[i * sizeof(F3DVertex) + 14];
-					buffer[i].a = ptr[i * sizeof(F3DVertex) + 15];
+				for (int i = 0; i < num; i++) {
+					buffer[dest_off + i].x = Read(ptr, 0, 2);
+					buffer[dest_off + i].y = Read(ptr, 2, 2);
+					buffer[dest_off + i].z = Read(ptr, 4, 2);
+					buffer[dest_off + i].f = Read(ptr, 6, 2);
+					buffer[dest_off + i].u = Read(ptr, 8, 2);
+					buffer[dest_off + i].v = Read(ptr, 10, 2);
+					buffer[dest_off + i].r_nx = ptr[12];
+					buffer[dest_off + i].g_ny = ptr[13];
+					buffer[dest_off + i].b_nz = ptr[14];
+					buffer[dest_off + i].a = ptr[15];
+					ptr += sizeof(F3DVertex);
 				}
 			}
 			break;
@@ -109,16 +54,14 @@ struct Fast3DScript : Script {
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
 
-				if (rom.segments.count(seg) > 0 &&
-					seg != 0x00 &&
-					off != 0x000000) {
-					if (cmd[1] == 0x00)
-						ret_addr.push(cmd + 8);
-					cmd = rom.segments[seg].data() + off;
-					continue;
-				}
+				if (rom.segments.count(seg) == 0)break;
+				if (seg == 0x00 && off == 0x000000)break;
+
+				if (cmd[1] == 0x00)
+					ret_addr.push(cmd + 8);
+				cmd = rom.segments[seg].data() + off;
+				continue;
 			}
-			break;
 			case 0xb8: print("gsSPEndDisplayList");
 				if (!ret_addr.empty()) {
 					cmd = ret_addr.top();
@@ -136,7 +79,7 @@ struct Fast3DScript : Script {
 				byte array[3] = { a,b,c };
 
 				for (int i = 0; i < 3; i++) {
-					Vertex vertex;
+					SM64Vertex vertex;
 					vertex.x = buffer[array[i]].x;
 					vertex.y = buffer[array[i]].y;
 					vertex.z = buffer[array[i]].z;
@@ -147,7 +90,6 @@ struct Fast3DScript : Script {
 
 				if (dl->textures.empty()) {
 					dl->meshes.push_back({});
-					dl->meshes.back().vertex_offset = 0;
 					dl->textures.push_back(NULL);
 				}
 

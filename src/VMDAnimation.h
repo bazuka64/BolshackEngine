@@ -17,9 +17,11 @@ struct VMDAnimation {
 	std::map<std::wstring, std::vector<MorphFrame>> morph_map;
 
 	int max_frame;
-	fs::path path;
+	std::string filename;
 
-	VMDAnimation(const fs::path& path) :path(path) {
+	VMDAnimation(const fs::path& path) {
+
+		filename = path.filename().string();
 
 		std::vector<byte> data = File::ReadAllBytes(path.string());
 		BinaryReader br(data.data());

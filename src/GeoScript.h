@@ -69,12 +69,13 @@ struct GeoScript : Script {
 				byte layer = cmd[1];
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
-				if (seg != 0x00 && off != 0x000000) {
-					DisplayList* dl = Fast3DScript::parse(rom, seg, off);
-					dl->BuildBuffers();
-					dl->layer = layer;
-					model->dls.push_back(dl);
-				}
+
+				if (seg == 0x00 && off == 0x000000)break;
+
+				DisplayList* dl = Fast3DScript::parse(rom, seg, off);
+				dl->BuildBuffers();
+				dl->layer = layer;
+				model->dls.push_back(dl);
 			}
 			cmd += 8;
 			break;

@@ -21,8 +21,8 @@ namespace fs = std::filesystem;
 #include <stb_image.h>
 #include <SFML/Audio.hpp>
 #include <imgui/imgui.h>
-#include <imgui/backends/imgui_impl_glfw.h>
-#include <imgui/backends/imgui_impl_opengl3.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_opengl3.h>
 
 typedef unsigned char byte;
 typedef unsigned short ushort;
@@ -33,6 +33,7 @@ void print(T x) { std::cout << x << "\n"; }
 template <typename T>
 void printw(T x) { std::wcout << x << L"\n"; }
 
+#include "Globals.h"
 #include "File.h"
 #include "Shader.h"
 #include "Texture.h"
@@ -43,10 +44,14 @@ void printw(T x) { std::wcout << x << L"\n"; }
 
 #include "libmio0.h"
 #include "ROM.h"
+#include "DisplayList.h"
 #include "Script.h"
 #include "Fast3DScript.h"
 #include "GeoScript.h"
 #include "LevelScript.h"
+
+#include <libsm64.h>
+#include "Mario.h"
 
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
@@ -99,6 +104,8 @@ int main() {
 
 	Shader mmd_shader("shader/mmd.vert", "shader/mmd.frag");
 	Shader sm64_shader("shader/sm64.vert", "shader/sm64.frag");
+	Shader mario_shader("shader/mario.vert", "shader/mario.frag");
+
 	Camera camera;
 
 	float distance = 7.5f * 20;
@@ -117,13 +124,13 @@ int main() {
 	sf::Music* cur_music = NULL;
 	for (auto& entry : fs::directory_iterator("res/motion/dance/")) {
 		const fs::path& path = entry.path();
-		std::string dance_path = path.string() + "/" + path.stem().string() + ".vmd";
+		fs::path dance_path = path / (path.stem().string() + ".vmd");
 		animations.push_back(new VMDAnimation(dance_path));
 
-		std::string music_path = path.string() + "/" + path.stem().string() + ".wav";
+		fs::path music_path = path / (path.stem().string() + ".wav");
 		musics.push_back(new sf::Music);
 		sf::Music* music = musics.back();
-		if (!music->openFromFile(music_path))throw;
+		if (!music->openFromFile(music_path.string()))throw;
 	}
 
 	VMDAnimation* idle = new VMDAnimation("res/motion/1.‚Ú‚ñ‚â‚è‘Ò‚¿_(490f_ˆÚ“®‚È‚µ).vmd");
@@ -133,11 +140,10 @@ int main() {
 	ROM* rom = NULL;
 	if (fs::exists("res/roms/baserom.us.z64"))
 		rom = new ROM("res/roms/baserom.us.z64");
-	//ROM rom("res/roms/Super Mario Star Road 1.0.z64");
-	//ROM rom("res/roms/Super Mario 74 (v1.8) (LinCrash edit).z64");
-	//ROM rom("res/roms/Star Revenge 6.25 - LADX v1.1.z64");
-	//ROM rom("res/roms/SM64 Last Impact V1.2.z64");
 	Level* level = NULL;
+
+	Mario* mario = NULL;
+	if (rom)mario = new Mario;
 
 	float prev_time = (float)glfwGetTime();
 	glm::ivec2 prev_pos(0);
@@ -180,25 +186,26 @@ int main() {
 			}
 		}
 
+		if(mario)
+			mario->Draw(mario_shader, camera, dt);
+
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		if (ImGui::Button("Debug")) {
-			for (MMDModel* model : models)
-				model->debug = !model->debug;
-			static bool WireFrame = false;
-			if (WireFrame)glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			else glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			WireFrame = !WireFrame;
+		if (ImGui::Checkbox("WireFrame", &Globals::WireFrame)) {
+			if (Globals::WireFrame)glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
+		ImGui::Checkbox("IKBone", &Globals::IKBone);
+		ImGui::Checkbox("AABB", &Globals::AABB);
 
 		if (rom) {
 			ImGui::Separator();
 			for (int i = 0; i < LevelNum.size(); i++) {
 				if (i <= 3 || i == 32 || i == 35 || i >= 37)continue;
 				static int selected = -1;
-				if (ImGui::RadioButton(std::format("0x{:02X} {}", i, LevelNum[i]).c_str(), &selected, i)) {
+				if (ImGui::RadioButton(std::format("{:02X} {}", i, LevelNum[i]).c_str(), &selected, i)) {
 					level = LevelScript::parse(*rom, i);
 					for (auto model : models)
 						model->world[3] = glm::vec4(level->start_pos + model->local_pos, 1);
@@ -219,7 +226,7 @@ int main() {
 		for (int i = 0; i < animations.size(); i++) {
 			VMDAnimation* anim = animations[i];
 			sf::Music* music = musics[i];
-			if (ImGui::Button(anim->path.filename().string().c_str())) {
+			if (ImGui::Button(anim->filename.c_str())) {
 				for (MMDModel* model : models)
 					model->SetAnimation(anim, music);
 				if (cur_music)cur_music->stop();

@@ -58,7 +58,7 @@ struct MMDModel {
 
 		// append parent
 		Bone* append_parent;
-		float append_weight;
+		float append_weight; // unused
 
 		// debug
 		glm::vec3 offset;
@@ -112,12 +112,17 @@ struct MMDModel {
 	float anim_frame = 0;
 	glm::mat4 world = glm::scale(glm::mat4(1), glm::vec3(20));
 	glm::vec3 local_pos{};
-	bool debug = false;
 	sf::Music* music = NULL;
 
-	MMDModel(const std::string& path) {
+	struct AABB {
+		glm::vec3 max{};
+		glm::vec3 min{};
+	};
+	AABB aabb;
 
-		std::vector<byte> data = File::ReadAllBytes(path);
+	MMDModel(const fs::path& path) {
+
+		std::vector<byte> data = File::ReadAllBytes(path.string());
 		BinaryReader br(data.data());
 
 		br.Seek(9);
@@ -216,8 +221,7 @@ struct MMDModel {
 		// texture
 		int texture_count = br.ReadInt();
 		textures.reserve(texture_count);
-		std::string dir = path.substr(0, path.find_last_of("/") + 1);
-		std::wstring wdir(dir.begin(), dir.end());
+		std::wstring wdir = path.parent_path().wstring() + L"/";
 		for (int i = 0; i < texture_count; i++) {
 			int size = br.ReadInt();
 			std::wstring name(size / 2, 0);
@@ -260,7 +264,7 @@ struct MMDModel {
 		// bone
 		int bone_count = br.ReadInt();
 		bones.resize(bone_count);
-		FinalTransform.resize(bone_count);
+		FinalTransform.resize(bone_count, glm::mat4(1));
 		glGenBuffers(1, &ubo);
 		for (Bone& bone : bones) {
 
@@ -398,14 +402,14 @@ struct MMDModel {
 
 	void Update(float dt) {
 
-		if (anim) {
-			anim_frame += dt * 30;
-			if (anim_frame > anim->max_frame) {
-				anim_frame = fmodf(anim_frame, (float)anim->max_frame);
-				if (music) {
-					music->stop();
-					music->play();
-				}
+		if (!anim)return;
+
+		anim_frame += dt * 30;
+		if (anim_frame > anim->max_frame) {
+			anim_frame = fmodf(anim_frame, (float)anim->max_frame);
+			if (music) {
+				music->stop();
+				music->play();
 			}
 		}
 
@@ -414,7 +418,7 @@ struct MMDModel {
 			bone.Translation = glm::vec3(0);
 			bone.Rotation = glm::quat(1, 0, 0, 0);
 
-			if (anim && anim->bone_map.count(bone.name)) {
+			if (anim->bone_map.count(bone.name)) {
 
 				std::vector<VMDAnimation::BoneFrame>& bone_frames = anim->bone_map[bone.name];
 
@@ -471,7 +475,7 @@ struct MMDModel {
 		// morph
 		std::fill(morph_pos.begin(), morph_pos.end(), glm::vec3(0));
 		for (Morph& morph : morphs) {
-			if (anim && anim->morph_map.count(morph.name) > 0) {
+			if (anim->morph_map.count(morph.name) > 0) {
 				std::vector<VMDAnimation::MorphFrame>& morph_frames = anim->morph_map[morph.name];
 
 				int i = 0;
@@ -495,6 +499,7 @@ struct MMDModel {
 		}
 	}
 
+private:
 	void ProcessIK() {
 		for (Bone* ik_bone : ik_bones) {
 			Bone* target_bone = ik_bone->target_bone;
@@ -555,7 +560,10 @@ struct MMDModel {
 		}
 	}
 
+public:
 	void Draw(Shader& shader, Camera& camera) {
+
+		shader.Use();
 
 		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
 		glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_DYNAMIC_DRAW);
@@ -564,7 +572,6 @@ struct MMDModel {
 		glBindBuffer(GL_ARRAY_BUFFER, morph_vbo);
 		glBufferData(GL_ARRAY_BUFFER, morph_pos.size() * sizeof(glm::vec3), morph_pos.data(), GL_DYNAMIC_DRAW);
 
-		shader.Use();
 		glm::mat4 WVP = camera.proj * camera.view * world;
 		glUniformMatrix4fv(shader.uniforms["WVP"], 1, false, (float*)&WVP);
 
@@ -579,16 +586,16 @@ struct MMDModel {
 			else glEnable(GL_CULL_FACE);
 
 			glDrawElements(GL_TRIANGLES, material.index_count, GL_UNSIGNED_INT, (void*)(material.index_offset * sizeof(uint)));
-
-			glBindTexture(GL_TEXTURE_2D, 0);
 		}
 
 		glEnable(GL_CULL_FACE);
 
-		if (debug)DrawDebug(camera);
+		if (Globals::IKBone)DrawIKBone(camera);
+		if (Globals::AABB) DrawAABB(camera);
 	}
 
-	void DrawDebug(Camera& camera) {
+private:
+	void DrawIKBone(Camera& camera) {
 
 		glUseProgram(0);
 
@@ -599,9 +606,11 @@ struct MMDModel {
 		glLoadMatrixf((float*)&camera.proj);
 
 		glLineWidth(5);
-		glDisable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 		glBegin(GL_LINES);
-		for (Bone& bone : bones) {
+		for (int i = 0; i < bones.size(); i++) {
+			Bone& bone = bones[i];
+
 			if (bone.flag & BoneFlag::ik)glColor3f(1, 1, 0);
 			else if (bone.is_link_bone) glColor3f(1, 0, 0);
 			else continue;
@@ -613,10 +622,68 @@ struct MMDModel {
 		}
 		glEnd();
 
-		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
 		glLineWidth(1);
 	}
 
+	void DrawAABB(Camera& camera) {
+
+		aabb.max = glm::vec3(std::numeric_limits<float>::lowest());
+		aabb.min = glm::vec3(std::numeric_limits<float>::max());
+		for (Bone& bone : bones) {
+			if (!(bone.flag & BoneFlag::display))continue;
+			if (!bone.parent)continue;
+
+			aabb.max = glm::max(glm::vec3(bone.GlobalTransform[3]), aabb.max);
+			aabb.min = glm::min(glm::vec3(bone.GlobalTransform[3]), aabb.min);
+		}
+
+		glUseProgram(0);
+
+		glm::mat4 WV = camera.view * world;
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixf((float*)&WV);
+		glMatrixMode(GL_PROJECTION);
+		glLoadMatrixf((float*)&camera.proj);
+
+		glColor3f(0, 1, 0);
+		glLineWidth(5);
+
+		glm::vec3& max = aabb.max;
+		glm::vec3& min = aabb.min;
+
+		glBegin(GL_LINE_LOOP);
+		glVertex3f(max.x, max.y, max.z);
+		glVertex3f(min.x, max.y, max.z);
+		glVertex3f(min.x, min.y, max.z);
+		glVertex3f(max.x, min.y, max.z);
+		glEnd();
+
+		glBegin(GL_LINE_LOOP);
+		glVertex3f(max.x, max.y, min.z);
+		glVertex3f(min.x, max.y, min.z);
+		glVertex3f(min.x, min.y, min.z);
+		glVertex3f(max.x, min.y, min.z);
+		glEnd();
+
+		glBegin(GL_LINES);
+		glVertex3f(max.x, max.y, max.z);
+		glVertex3f(max.x, max.y, min.z);
+
+		glVertex3f(max.x, min.y, max.z);
+		glVertex3f(max.x, min.y, min.z);
+
+		glVertex3f(min.x, max.y, max.z);
+		glVertex3f(min.x, max.y, min.z);
+
+		glVertex3f(min.x, min.y, max.z);
+		glVertex3f(min.x, min.y, min.z);
+		glEnd();
+
+		glLineWidth(1);
+	}
+
+public:
 	void SetAnimation(VMDAnimation* anim, sf::Music* music) {
 		this->anim = anim;
 		anim_frame = 0;

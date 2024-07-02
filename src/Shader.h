@@ -8,6 +8,7 @@ struct Shader {
 	Shader(const std::string& vertPath, const std::string& fragPath) {
 
 		std::vector<byte> data = File::ReadAllBytes(vertPath);
+		data.push_back(0);
 		const char* c_str = (char*)data.data();
 		GLuint vertex = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertex, 1, &c_str, 0);
@@ -23,6 +24,7 @@ struct Shader {
 		}
 
 		data = File::ReadAllBytes(fragPath);
+		data.push_back(0);
 		c_str = (char*)data.data();
 		GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragment, 1, &c_str, 0);
@@ -64,6 +66,10 @@ struct Shader {
 			glGetActiveUniform(program, i, sizeof name, &length, &size, &type, name);
 			uniforms[name] = glGetUniformLocation(program, name);
 		}
+	}
+
+	~Shader() {
+		glDeleteProgram(program);
 	}
 
 	void Use() {

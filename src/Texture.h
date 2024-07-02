@@ -19,6 +19,10 @@ struct Texture {
 		stbi_image_free(pixels);
 	}
 
+	~Texture() {
+		glDeleteTextures(1, &id);
+	}
+
 	// 16-bit RGBA
 	Texture(byte* addr, int width, int height) {
 

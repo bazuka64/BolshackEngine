@@ -3,9 +3,10 @@
 struct Camera {
 
 	const glm::vec3 initial_pos{ 0,10 * 20,30 * 20 };
-
+	const glm::vec3 initial_target{ 0,10 * 20,0 };
 	glm::vec3 position = initial_pos;
-	glm::vec3 target{ 0,10*20,0 };
+	glm::vec3 target = initial_target;
+
 	float fov = 45;
 	float aspect = 16.f / 9.f;
 	float znear = 1;
@@ -18,11 +19,7 @@ struct Camera {
 	float yaw, pitch;
 
 	Camera() {
-		front = glm::normalize(target - position);
-		right = glm::normalize(glm::cross(front, glm::vec3(0, 1, 0)));
-		up = glm::normalize(glm::cross(right, front));
-		yaw = glm::degrees(atan2(front.z, front.x));
-		pitch = glm::degrees(asin(front.y));
+		LookAt(target);
 	}
 
 	void LookAt(const glm::vec3& new_target) {
@@ -69,4 +66,6 @@ struct Camera {
 		view = glm::lookAt(position, target, glm::vec3(0, 1, 0));
 		proj = glm::perspective(glm::radians(fov), aspect, znear, zfar);
 	}
+
+
 };

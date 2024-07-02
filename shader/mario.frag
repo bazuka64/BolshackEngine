@@ -2,12 +2,13 @@
 
 out vec4 FragColor;
 
+in vec3 fcolor;
 in vec2 fuv;
 
 uniform sampler2D tex0;
 
 void main(){
 	vec4 texColor = texture(tex0, fuv);
-	if(texColor.a < 0.5)discard;
-	FragColor = texColor;
+	vec3 mainColor = mix(fcolor, texColor.rgb, texColor.a);
+	FragColor = vec4(mainColor, 1);
 }
