@@ -23,7 +23,7 @@ struct VMDAnimation {
 
 		filename = path.filename().string();
 
-		std::vector<byte> data = File::ReadAllBytes(path.string());
+		std::vector<byte> data = File::ReadAllBytes(path);
 		BinaryReader br(data.data());
 
 		br.Seek(50);
@@ -33,11 +33,11 @@ struct VMDAnimation {
 		for (int i = 0; i < bone_count; i++) {
 
 			std::string name(15, 0);
-			br.Read(&name.front(), 15);
+			br.Read(name.data(), 15);
 			if (bone_name_map.count(name) == 0) {
 				std::wstring wstr(15, 0);
-				int size = MultiByteToWideChar(CP_ACP, 0, name.c_str(), -1, &wstr.front(), 15);
-				wstr.resize(size - 1);
+				int size = MultiByteToWideChar(CP_ACP, 0, name.c_str(), -1, wstr.data(), 15);
+				wstr.resize(size - 1); // erase null terminator
 				bone_name_map[name] = wstr;
 			}
 
@@ -48,7 +48,7 @@ struct VMDAnimation {
 			br.Read(&bf.rotation, 16);
 			bf.rotation.x *= -1;
 			bf.rotation.y *= -1;
-			br.Seek(64);
+			br.Seek(64); // bezier interpolation
 
 			bone_map[bone_name_map[name]].push_back(bf);
 
@@ -67,11 +67,11 @@ struct VMDAnimation {
 		for (int i = 0; i < morph_count; i++) {
 
 			std::string name(15, 0);
-			br.Read(&name.front(), 15);
+			br.Read(name.data(), 15);
 			if (morph_name_map.count(name) == 0) {
 				std::wstring wstr(15, 0);
-				int size = MultiByteToWideChar(CP_ACP, 0, name.c_str(), -1, &wstr.front(), 15);
-				wstr.resize(size - 1);
+				int size = MultiByteToWideChar(CP_ACP, 0, name.c_str(), -1, wstr.data(), 15);
+				wstr.resize(size - 1); // erase null terminator
 				morph_name_map[name] = wstr;
 			}
 

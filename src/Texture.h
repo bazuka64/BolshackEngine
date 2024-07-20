@@ -4,7 +4,7 @@ struct Texture {
 
 	GLuint id;
 
-	Texture(const std::wstring& path) {
+	Texture(const fs::path& path) {
 
 		std::vector<byte> data = File::ReadAllBytes(path);
 		int x, y, comp;
@@ -43,9 +43,5 @@ struct Texture {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		delete[] pixels;
-	}
-
-	~Texture() {
-		glDeleteTextures(1, &id);
 	}
 };

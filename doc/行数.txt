@@ -1,1 +1,1 @@
-(Get-Content src/*, shader/*).Length
+(Get-Content src/*, bin/shader/*).Length

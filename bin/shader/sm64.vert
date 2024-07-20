@@ -5,9 +5,9 @@ layout (location = 1) in vec2 uv;
 
 out vec2 fuv;
 
-uniform mat4 WVP;
+uniform mat4 wvp;
 
 void main(){
-	gl_Position = WVP * vec4(position, 1);
+	gl_Position = wvp * vec4(position, 1);
 	fuv = uv;
 }

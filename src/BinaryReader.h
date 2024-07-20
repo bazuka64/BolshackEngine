@@ -12,48 +12,48 @@ struct BinaryReader {
 	}
 
 	void Read(void* dest, int size) {
-		memcpy(dest, &data[position], size);
+		memcpy(dest, data + position, size);
 		position += size;
 	}
 
 	char ReadChar() {
-		char value = *(char*)&data[position];
+		char value = *(char*)(data + position);
 		position += 1;
 		return value;
 	}
 
 	byte ReadByte() {
-		byte value = *(byte*)&data[position];
+		byte value = *(byte*)(data + position);
 		position += 1;
 		return value;
 	}
 
 	short ReadShort() {
-		short value = *(short*)&data[position];
+		short value = *(short*)(data + position);
 		position += 2;
 		return value;
 	}
 
 	ushort ReadUShort() {
-		ushort value = *(ushort*)&data[position];
+		ushort value = *(ushort*)(data + position);
 		position += 2;
 		return value;
 	}
 
 	int ReadInt() {
-		int value = *(int*)&data[position];
+		int value = *(int*)(data + position);
 		position += 4;
 		return value;
 	}
 
 	uint ReadUInt() {
-		uint value = *(uint*)&data[position];
+		uint value = *(uint*)(data + position);
 		position += 4;
 		return value;
 	}
 
 	float ReadFloat() {
-		float value = *(float*)&data[position];
+		float value = *(float*)(data + position);
 		position += 4;
 		return value;
 	}
@@ -67,7 +67,7 @@ struct BinaryReader {
 		}
 	}
 
-	int ReadUSize(int size) {
+	uint ReadUSize(int size) {
 		switch (size) {
 		case 1: return ReadByte();
 		case 2: return ReadUShort();

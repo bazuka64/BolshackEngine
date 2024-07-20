@@ -5,11 +5,20 @@ struct Shader {
 	GLuint program;
 	std::map<std::string, GLint> uniforms;
 
-	Shader(const std::string& vertPath, const std::string& fragPath) {
+	Shader(const char* vertPath, const char* fragPath) {
 
-		std::vector<byte> data = File::ReadAllBytes(vertPath);
-		data.push_back(0);
-		const char* c_str = (char*)data.data();
+		std::ifstream file;
+		std::stringstream ss;
+		std::string str;
+		const char* c_str;
+
+		file.open(vertPath);
+		if (!file)throw;
+		ss << file.rdbuf();
+		str = ss.str();
+		c_str = str.c_str();
+		file.close();
+
 		GLuint vertex = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertex, 1, &c_str, 0);
 		glCompileShader(vertex);
@@ -23,9 +32,14 @@ struct Shader {
 			throw;
 		}
 
-		data = File::ReadAllBytes(fragPath);
-		data.push_back(0);
-		c_str = (char*)data.data();
+		file.open(fragPath);
+		if (!file)throw;
+		ss.str("");
+		ss << file.rdbuf();
+		str = ss.str();
+		c_str = str.c_str();
+		file.close();
+
 		GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragment, 1, &c_str, 0);
 		glCompileShader(fragment);
@@ -51,25 +65,17 @@ struct Shader {
 			throw;
 		}
 
-		glDeleteShader(vertex);
-		glDeleteShader(fragment);
-		glDetachShader(program, vertex);
-		glDetachShader(program, fragment);
-
-		int count;
-		glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &count);
-		for (int i = 0; i < count; i++) {
+		int num;
+		glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &num);
+		for (int i = 0; i < num; i++) {
 			char name[256];
 			GLsizei length;
 			GLint size;
 			GLenum type;
 			glGetActiveUniform(program, i, sizeof name, &length, &size, &type, name);
-			uniforms[name] = glGetUniformLocation(program, name);
+			GLint location = glGetUniformLocation(program, name);
+			uniforms[name] = location;
 		}
-	}
-
-	~Shader() {
-		glDeleteProgram(program);
 	}
 
 	void Use() {

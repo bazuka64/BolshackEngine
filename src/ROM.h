@@ -20,16 +20,16 @@ struct ROM {
 
 	void SetSegmentMIO0(byte seg, uint start, uint end) {
 		mio0_header_t head;
-		byte* in_buf = &bytes[start];
+		byte* in_buf = (byte*)&bytes[start];
 		mio0_decode_header(in_buf, &head);
 		std::vector<byte> segment(head.dest_size);
-		mio0_decode(in_buf, segment.data(), NULL);
+		mio0_decode(in_buf, (byte*)segment.data());
 
 		segments[seg] = std::move(segment);
 	}
 };
 
-std::vector<const char*> LevelNum  = {
+std::vector<const char*> LevelNum = {
 	"LEVEL_NONE",
 	"LEVEL_UNKNOWN_1",
 	"LEVEL_UNKNOWN_2",

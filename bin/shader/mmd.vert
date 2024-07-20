@@ -8,7 +8,7 @@ layout (location = 4) in vec3 morph_pos;
 
 out vec2 fuv;
 
-uniform mat4 WVP;
+uniform mat4 wvp;
 
 uniform Buffer{
 	mat4 FinalTransform[1]; // Œã‚ÅŽ©“®‚ÅŠg’£‚³‚ê‚é
@@ -21,6 +21,6 @@ void main(){
 				   FinalTransform[bones[2]] * weights[2] +
 				   FinalTransform[bones[3]] * weights[3] ;	
 
-	gl_Position = WVP * skinned * vec4(position + morph_pos, 1);
+	gl_Position = wvp * skinned * vec4(position + morph_pos, 1);
 	fuv = uv;
 }

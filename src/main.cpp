@@ -5,7 +5,6 @@
 #include <map>
 #include <stack>
 #include <algorithm>
-#include <thread>
 #include <format>
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -29,15 +28,17 @@ typedef unsigned short ushort;
 typedef unsigned int uint;
 
 template <typename T>
-void print(T x) { std::cout << x << "\n"; }
+void print(T x) { std::cout << x << std::endl; }
 template <typename T>
-void printw(T x) { std::wcout << x << L"\n"; }
+void printw(T x) { std::wcout << x << std::endl; }
 
+#include "Window.h"
 #include "Globals.h"
 #include "File.h"
 #include "Shader.h"
 #include "Texture.h"
 #include "Camera.h"
+#include "AABB.h"
 #include "BinaryReader.h"
 #include "VMDAnimation.h"
 #include "MMDModel.h"
@@ -53,61 +54,15 @@ void printw(T x) { std::wcout << x << L"\n"; }
 #include <libsm64.h>
 #include "Mario.h"
 
-void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, true);
-}
-
-void FramebufferSizeCallback(GLFWwindow* window, int width, int height) {
-	glViewport(0, 0, width, height);
-}
-
-void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-}
-
 int main() {
 
-	const int width = 1920, height = 1080;
-	glfwInit();
-	glfwWindowHint(GLFW_VISIBLE, false);
-	glfwWindowHint(GLFW_SAMPLES, 4);
-	GLFWwindow* window = glfwCreateWindow(width, height, "", NULL, NULL);
-	glfwMakeContextCurrent(window);
+	GLFWwindow* window = WindowInit();
 
-	gladLoadGL();
-	stbi_set_flip_vertically_on_load(true);
-	setlocale(LC_CTYPE, "");
-
-	glfwSetKeyCallback(window, KeyCallback);
-	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-	glfwSetMouseButtonCallback(window, MouseButtonCallback);
-
-	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-	int xpos = (mode->width - width) / 2;
-	int ypos = (mode->height - height) / 2;
-	glfwSetWindowPos(window, xpos, ypos);
-	glfwShowWindow(window);
-	//glfwMaximizeWindow(window);
-	glfwSwapBuffers(window);
-
-	ImGui::CreateContext();
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init();
-
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	Camera camera;
 
 	Shader mmd_shader("shader/mmd.vert", "shader/mmd.frag");
 	Shader sm64_shader("shader/sm64.vert", "shader/sm64.frag");
 	Shader mario_shader("shader/mario.vert", "shader/mario.frag");
-
-	Camera camera;
 
 	float distance = 7.5f * 20;
 	std::vector<MMDModel*> models;
@@ -116,6 +71,7 @@ int main() {
 	meirin->local_pos = glm::vec3(distance, 0, 0);
 	meirin->world[3] = glm::vec4(meirin->local_pos, 1);
 	models.push_back(meirin);
+
 	MMDModel* mima = new MMDModel("res/model/mima/mima.pmx");
 	mima->local_pos = glm::vec3(-distance, 0, 0);
 	mima->world[3] = glm::vec4(mima->local_pos, 1);
@@ -131,9 +87,9 @@ int main() {
 		animations.push_back(new VMDAnimation(dance_path));
 
 		fs::path music_path = path / (path.stem().string() + ".wav");
-		musics.push_back(new sf::Music);
-		sf::Music* music = musics.back();
+		sf::Music* music = new sf::Music;
 		if (!music->openFromFile(music_path.string()))throw;
+		musics.push_back(music);
 	}
 
 	VMDAnimation* idle = new VMDAnimation("res/motion/1.‚Ú‚ñ‚â‚è‘Ò‚¿_(490f_ˆÚ“®‚È‚µ).vmd");
@@ -143,14 +99,14 @@ int main() {
 	ROM* rom = NULL;
 	if (fs::exists("res/roms/sm64.z64"))
 		rom = new ROM("res/roms/sm64.z64");
-	Level* level = NULL;
 
+	Level* level = NULL;
 	if (rom) {
 		level = LevelScript::parse(*rom, 0x10); // castle grounds
 		for (auto model : models)
 			model->world[3] = glm::vec4(level->start_pos + model->local_pos, 1);
-		camera.position = camera.initial_pos + level->start_pos;
-		camera.LookAt(camera.position + glm::vec3(0, 0, -1));
+		camera.position = level->start_pos + camera.local_pos;
+		camera.target = level->start_pos + camera.local_target;
 	}
 
 	Mario* mario = NULL;
@@ -188,23 +144,22 @@ int main() {
 			Area* area = level->areas[level->start_area];
 			if (area) {
 				sm64_shader.Use();
-				glm::mat4 VP = camera.proj * camera.view;
-				glUniformMatrix4fv(sm64_shader.uniforms["WVP"], 1, false, (float*)&VP);
+				glm::mat4 vp = camera.proj * camera.view;
+				glUniformMatrix4fv(sm64_shader.uniforms["wvp"], 1, false, (float*)&vp);
 				area->model->Draw(sm64_shader);
 
 				for (Object* obj : area->objects) {
 					if (level->models.count(obj->modelID) == 0)continue;
 
 					glm::mat4 world = glm::translate(glm::mat4(1), obj->position);
-					glm::mat4 WVP = VP * world;
-					glUniformMatrix4fv(sm64_shader.uniforms["WVP"], 1, false, (float*)&WVP);
+					glm::mat4 wvp = vp * world;
+					glUniformMatrix4fv(sm64_shader.uniforms["wvp"], 1, false, (float*)&wvp);
 					level->models[obj->modelID]->Draw(sm64_shader);
 				}
 			}
 		}
 
-		if (mario)
-			mario->Draw(mario_shader, camera, dt);
+		if (mario) mario->Draw(mario_shader, camera, dt);
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -226,8 +181,8 @@ int main() {
 					level = LevelScript::parse(*rom, i);
 					for (auto model : models)
 						model->world[3] = glm::vec4(level->start_pos + model->local_pos, 1);
-					camera.position = camera.initial_pos + level->start_pos;
-					camera.LookAt(camera.position + glm::vec3(0, 0, -1));
+					camera.position = level->start_pos + camera.local_pos;
+					camera.target = level->start_pos + camera.local_target;
 				}
 			}
 		}
