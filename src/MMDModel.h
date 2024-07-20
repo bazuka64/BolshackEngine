@@ -605,14 +605,14 @@ private:
 		glMatrixMode(GL_PROJECTION);
 		glLoadMatrixf((float*)&camera.proj);
 
-		glLineWidth(5);
+		glLineWidth(4);
 		glDepthFunc(GL_ALWAYS);
 		glBegin(GL_LINES);
 		for (int i = 0; i < bones.size(); i++) {
 			Bone& bone = bones[i];
 
-			if (bone.flag & BoneFlag::ik)glColor3f(1, 1, 0);
-			else if (bone.is_link_bone) glColor3f(1, 0, 0);
+			if (bone.flag & BoneFlag::ik)glColor3f(0, 1, 1);
+			else if (bone.is_link_bone) glColor3f(0, 0, 1);
 			else continue;
 
 			glm::vec3 pos = bone.GlobalTransform[3];
@@ -646,8 +646,8 @@ private:
 		glMatrixMode(GL_PROJECTION);
 		glLoadMatrixf((float*)&camera.proj);
 
-		glColor3f(0, 1, 0);
-		glLineWidth(5);
+		glColor3f(1, 0, 0);
+		glLineWidth(4);
 
 		glm::vec3& max = aabb.max;
 		glm::vec3& min = aabb.min;

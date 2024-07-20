@@ -1,6 +1,6 @@
 #include <fstream>
+#include <sstream>
 #include <iostream>
-#include <string>
 #include <vector>
 #include <map>
 #include <stack>
@@ -20,9 +20,9 @@ namespace fs = std::filesystem;
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <SFML/Audio.hpp>
-#include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
-#include <imgui/imgui_impl_opengl3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 typedef unsigned char byte;
 typedef unsigned short ushort;
@@ -77,6 +77,7 @@ int main() {
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	GLFWwindow* window = glfwCreateWindow(width, height, "", NULL, NULL);
 	glfwMakeContextCurrent(window);
+
 	gladLoadGL();
 	stbi_set_flip_vertically_on_load(true);
 	setlocale(LC_CTYPE, "");
@@ -91,7 +92,7 @@ int main() {
 	int ypos = (mode->height - height) / 2;
 	glfwSetWindowPos(window, xpos, ypos);
 	glfwShowWindow(window);
-	glfwMaximizeWindow(window);
+	//glfwMaximizeWindow(window);
 	glfwSwapBuffers(window);
 
 	ImGui::CreateContext();
@@ -110,6 +111,7 @@ int main() {
 
 	float distance = 7.5f * 20;
 	std::vector<MMDModel*> models;
+
 	MMDModel* meirin = new MMDModel("res/model/meirin/meirin.pmx");
 	meirin->local_pos = glm::vec3(distance, 0, 0);
 	meirin->world[3] = glm::vec4(meirin->local_pos, 1);
@@ -122,6 +124,7 @@ int main() {
 	std::vector<VMDAnimation*> animations;
 	std::vector<sf::Music*> musics;
 	sf::Music* cur_music = NULL;
+
 	for (auto& entry : fs::directory_iterator("res/motion/dance/")) {
 		const fs::path& path = entry.path();
 		fs::path dance_path = path / (path.stem().string() + ".vmd");
@@ -138,9 +141,17 @@ int main() {
 		model->SetAnimation(idle, NULL);
 
 	ROM* rom = NULL;
-	if (fs::exists("res/roms/baserom.us.z64"))
-		rom = new ROM("res/roms/baserom.us.z64");
+	if (fs::exists("res/roms/sm64.z64"))
+		rom = new ROM("res/roms/sm64.z64");
 	Level* level = NULL;
+
+	if (rom) {
+		level = LevelScript::parse(*rom, 0x10); // castle grounds
+		for (auto model : models)
+			model->world[3] = glm::vec4(level->start_pos + model->local_pos, 1);
+		camera.position = camera.initial_pos + level->start_pos;
+		camera.LookAt(camera.position + glm::vec3(0, 0, -1));
+	}
 
 	Mario* mario = NULL;
 	if (rom)mario = new Mario;
@@ -173,20 +184,26 @@ int main() {
 		for (MMDModel* model : models)
 			model->Draw(mmd_shader, camera);
 
-		sm64_shader.Use();
-		glm::mat4 WVP = camera.proj * camera.view;
-		glUniformMatrix4fv(sm64_shader.uniforms["WVP"], 1, false, (float*)&WVP);
-
 		if (level) {
 			Area* area = level->areas[level->start_area];
 			if (area) {
-				for (DisplayList* dl : area->model->dls) {
-					dl->Draw(sm64_shader);
+				sm64_shader.Use();
+				glm::mat4 VP = camera.proj * camera.view;
+				glUniformMatrix4fv(sm64_shader.uniforms["WVP"], 1, false, (float*)&VP);
+				area->model->Draw(sm64_shader);
+
+				for (Object* obj : area->objects) {
+					if (level->models.count(obj->modelID) == 0)continue;
+
+					glm::mat4 world = glm::translate(glm::mat4(1), obj->position);
+					glm::mat4 WVP = VP * world;
+					glUniformMatrix4fv(sm64_shader.uniforms["WVP"], 1, false, (float*)&WVP);
+					level->models[obj->modelID]->Draw(sm64_shader);
 				}
 			}
 		}
 
-		if(mario)
+		if (mario)
 			mario->Draw(mario_shader, camera, dt);
 
 		ImGui_ImplOpenGL3_NewFrame();
@@ -241,4 +258,7 @@ int main() {
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	for (sf::Music* music : musics)
+		delete music;
 }

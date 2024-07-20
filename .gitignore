@@ -1,5 +1,4 @@
-res/roms/*.z64
+bin/res/roms/*.z64
 .vs/
 *.user
-BolshackEngine/
-x64/
+int/

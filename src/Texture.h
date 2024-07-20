@@ -19,10 +19,6 @@ struct Texture {
 		stbi_image_free(pixels);
 	}
 
-	~Texture() {
-		glDeleteTextures(1, &id);
-	}
-
 	// 16-bit RGBA
 	Texture(byte* addr, int width, int height) {
 
@@ -47,5 +43,9 @@ struct Texture {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		delete[] pixels;
+	}
+
+	~Texture() {
+		glDeleteTextures(1, &id);
 	}
 };

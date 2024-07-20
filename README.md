@@ -1,3 +1,5 @@
 # BolshackEngine
 
-put res/roms/baserom.us.z64
+put bin/res/roms/sm64.z64
+
+vcpkg used

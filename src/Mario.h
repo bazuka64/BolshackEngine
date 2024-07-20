@@ -19,7 +19,7 @@ struct Mario {
 
 	Mario() {
 
-		std::vector<byte> bytes = File::ReadAllBytes("res/roms/baserom.us.z64");
+		std::vector<byte> bytes = File::ReadAllBytes("res/roms/sm64.z64");
 
 		byte* outTexture = new byte[4 * SM64_TEXTURE_WIDTH * SM64_TEXTURE_HEIGHT];
 		sm64_global_init(bytes.data(), outTexture);

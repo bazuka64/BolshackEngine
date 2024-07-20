@@ -3,8 +3,8 @@
 struct Fast3DScript : Script {
 
 	static const bool debug = false;
-	static void print(const char* str) {
-		if (debug)::print(str);
+	static void print(std::string str, byte* cmd) {
+		if (debug)Script::print(str, cmd, 8);
 	}
 
 	static DisplayList* parse(ROM& rom, byte seg, uint off) {
@@ -24,7 +24,7 @@ struct Fast3DScript : Script {
 		std::stack<byte*> ret_addr;
 		while (!end) {
 			switch (cmd[0]) {
-			case 0x04: print("gsSPVertex");
+			case 0x04: print("gsSPVertex", cmd);
 			{
 				byte num = (cmd[1] >> 4) + 1;
 				byte dest_off = cmd[1] & 0x0F;
@@ -49,7 +49,7 @@ struct Fast3DScript : Script {
 				}
 			}
 			break;
-			case 0x06: print("gsSPDisplayList");
+			case 0x06: print("gsSPDisplayList", cmd);
 			{
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
@@ -62,7 +62,7 @@ struct Fast3DScript : Script {
 				cmd = rom.segments[seg].data() + off;
 				continue;
 			}
-			case 0xb8: print("gsSPEndDisplayList");
+			case 0xb8: print("gsSPEndDisplayList", cmd);
 				if (!ret_addr.empty()) {
 					cmd = ret_addr.top();
 					ret_addr.pop();
@@ -70,7 +70,7 @@ struct Fast3DScript : Script {
 				}
 				end = true;
 				break;
-			case 0xbf: print("gsSP1Triangle");
+			case 0xbf: print("gsSP1Triangle", cmd);
 			{
 				byte a = cmd[5] / 0x0A;
 				byte b = cmd[6] / 0x0A;
@@ -96,7 +96,7 @@ struct Fast3DScript : Script {
 				dl->meshes.back().vertex_count += 3;
 			}
 			break;
-			case 0xf2: print("gsDPSetTileSize");
+			case 0xf2: print("gsDPSetTileSize", cmd);
 			{
 				int w = cmd[5] << 4 | cmd[6] >> 4;
 				int h = (cmd[6] & 0x0F) << 8 | cmd[7];
@@ -105,7 +105,7 @@ struct Fast3DScript : Script {
 				height = (h >> 2) + 1;
 			}
 			break;
-			case 0xfd: print("gsDPSetTextureImage");
+			case 0xfd: print("gsDPSetTextureImage", cmd);
 			{
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
@@ -119,22 +119,22 @@ struct Fast3DScript : Script {
 				dl->meshes.back().vertex_offset = (int)dl->vertices.size();
 			}
 			break;
-			case 0x03: print("G_MOVEMEM"); break;
-			case 0xb6: print("gsSPClearGeometryMode"); break;
-			case 0xb7: print("gsSPSetGeometryMode"); break;
-			case 0xb9: print("G_SetOtherMode_L"); break;
-			case 0xba: print("G_SetOtherMode_H"); break;
-			case 0xbb: print("gsSPTexture"); break;
-			case 0xbc: print("G_MOVEWORD"); break;
-			case 0xe6: print("gsDPLoadSync"); break;
-			case 0xe7: print("gsDPPipeSync"); break;
-			case 0xe8: print("gsDPTileSync"); break;
-			case 0xf0: print("G_LOADTLUT"); break;
-			case 0xf3: print("gsDPLoadBlock"); break;
-			case 0xf5: print("gsDPSetTile"); break;
-			case 0xf8: print("G_SETFOGCOLOR"); break;
-			case 0xfb: print("G_SETENVCOLOR"); break;
-			case 0xfc: print("gsDPSetCombineMode"); break;
+			case 0x03: print("G_MOVEMEM", cmd); break;
+			case 0xb6: print("gsSPClearGeometryMode", cmd); break;
+			case 0xb7: print("gsSPSetGeometryMode", cmd); break;
+			case 0xb9: print("G_SetOtherMode_L", cmd); break;
+			case 0xba: print("G_SetOtherMode_H", cmd); break;
+			case 0xbb: print("gsSPTexture", cmd); break;
+			case 0xbc: print("G_MOVEWORD", cmd); break;
+			case 0xe6: print("gsDPLoadSync", cmd); break;
+			case 0xe7: print("gsDPPipeSync", cmd); break;
+			case 0xe8: print("gsDPTileSync", cmd); break;
+			case 0xf0: print("G_LOADTLUT", cmd); break;
+			case 0xf3: print("gsDPLoadBlock", cmd); break;
+			case 0xf5: print("gsDPSetTile", cmd); break;
+			case 0xf8: print("G_SETFOGCOLOR", cmd); break;
+			case 0xfb: print("G_SETENVCOLOR", cmd); break;
+			case 0xfc: print("gsDPSetCombineMode", cmd); break;
 			default:throw;
 			}
 			cmd += 8;
