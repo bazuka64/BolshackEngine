@@ -18,6 +18,8 @@ struct MMDModel {
 		glm::vec2 uv;
 		glm::ivec4 bones;
 		glm::vec4 weights;
+		char skinning_type;
+		glm::vec3 center, r0, r1;
 	};
 
 	struct Material {
@@ -124,6 +126,7 @@ struct MMDModel {
 	std::vector<Bone*> ik_bones;
 	std::vector<Bone*> append_bones;
 	std::vector<glm::mat4> FinalTransform;
+	std::vector<glm::quat> BoneRotation;
 
 	std::vector<Morph> morphs;
 	std::vector<glm::vec3> morph_pos;
@@ -174,8 +177,8 @@ MMDModel::MMDModel(const fs::path& path) {
 		vertex.uv[1] = 1 - vertex.uv[1];
 		br.Seek(header.additional_uv * 16);
 
-		char skinning_type = br.ReadChar();
-		switch (skinning_type) {
+		vertex.skinning_type = br.ReadChar();
+		switch (vertex.skinning_type) {
 		case 0: // BDEF1
 			vertex.bones[0] = br.ReadSize(header.bone);
 			vertex.weights[0] = 1;
@@ -186,7 +189,22 @@ MMDModel::MMDModel(const fs::path& path) {
 				vertex.bones[i] = br.ReadSize(header.bone);
 			vertex.weights[0] = br.ReadFloat();
 			vertex.weights[1] = 1 - vertex.weights[0];
-			if (skinning_type == 3)br.Seek(12 + 12 + 12);
+
+			if (vertex.skinning_type == 3) {
+				glm::vec3 center, r0, r1;
+				br.Read(&center, 12);
+				br.Read(&r0, 12);
+				br.Read(&r1, 12);
+				center.z *= -1;
+				r0.z *= -1;
+				r1.z *= -1;
+				glm::vec3 rw = r0 * vertex.weights[0] + r1 * vertex.weights[1];
+				r0 = center + r0 - rw;
+				r1 = center + r1 - rw;
+				vertex.center = center;
+				vertex.r0 = (center + r0) * .5f;
+				vertex.r1 = (center + r1) * .5f;
+			}
 			break;
 		case 2: // BDEF4
 			for (int i = 0; i < 4; i++)
@@ -225,6 +243,18 @@ MMDModel::MMDModel(const fs::path& path) {
 
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(3, 4, GL_FLOAT, false, sizeof Vertex, (void*)offsetof(Vertex, weights));
+
+	glEnableVertexAttribArray(5);
+	glVertexAttribIPointer(5, 1, GL_INT, sizeof Vertex, (void*)offsetof(Vertex, skinning_type));
+
+	glEnableVertexAttribArray(6);
+	glVertexAttribPointer(6, 3, GL_FLOAT, false, sizeof Vertex, (void*)offsetof(Vertex, center));
+
+	glEnableVertexAttribArray(7);
+	glVertexAttribPointer(7, 3, GL_FLOAT, false, sizeof Vertex, (void*)offsetof(Vertex, r0));
+
+	glEnableVertexAttribArray(8);
+	glVertexAttribPointer(8, 3, GL_FLOAT, false, sizeof Vertex, (void*)offsetof(Vertex, r1));
 
 	glGenBuffers(1, &ibo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
@@ -275,6 +305,7 @@ MMDModel::MMDModel(const fs::path& path) {
 	int bone_count = br.ReadInt();
 	bones.resize(bone_count);
 	FinalTransform.resize(bone_count, glm::mat4(1));
+	BoneRotation.resize(bone_count, glm::quat(1, 0, 0, 0));
 	glGenBuffers(1, &ubo);
 	for (Bone& bone : bones) {
 
@@ -581,6 +612,12 @@ void MMDModel::Draw(Shader& shader, Camera& camera) {
 
 	glm::mat4 wvp = camera.proj * camera.view * world;
 	glUniformMatrix4fv(shader.uniforms["wvp"], 1, false, (float*)&wvp);
+
+	// sdef
+	for (int i = 0; i < bones.size(); i++) {
+		BoneRotation[i] = glm::quat_cast(bones[i].GlobalTransform);
+	}
+	glUniform4fv(shader.uniforms["BoneRotation"], (GLsizei)(BoneRotation.size() * sizeof(glm::quat)), (float*)BoneRotation.data());
 
 	glBindVertexArray(vao);
 

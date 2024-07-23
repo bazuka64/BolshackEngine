@@ -32,8 +32,8 @@ void print(T x) { std::cout << x << std::endl; }
 template <typename T>
 void printw(T x) { std::wcout << x << std::endl; }
 
-#include "Window.h"
 #include "Globals.h"
+#include "Window.h"
 #include "File.h"
 #include "Shader.h"
 #include "Texture.h"
@@ -79,7 +79,6 @@ int main() {
 
 	std::vector<VMDAnimation*> animations;
 	std::vector<sf::Music*> musics;
-	sf::Music* cur_music = NULL;
 
 	for (auto& entry : fs::directory_iterator("res/motion/dance/")) {
 		const fs::path& path = entry.path();
@@ -134,8 +133,10 @@ int main() {
 
 		camera.Update(window, dt, delta_pos);
 
-		for (MMDModel* model : models)
-			model->Update(dt);
+		for (MMDModel* model : models) {
+			if (!Globals::Paused)
+				model->Update(dt);
+		}
 
 		for (MMDModel* model : models)
 			model->Draw(mmd_shader, camera);
@@ -171,6 +172,12 @@ int main() {
 		}
 		ImGui::Checkbox("IKBone", &Globals::IKBone);
 		ImGui::Checkbox("AABB", &Globals::AABB);
+		if (ImGui::Checkbox("Paused", &Globals::Paused)) {
+			if (Globals::cur_music) {
+				if (Globals::Paused)Globals::cur_music->pause();
+				else Globals::cur_music->play();
+			}
+		}
 
 		if (rom) {
 			ImGui::Separator();
@@ -192,8 +199,8 @@ int main() {
 		if (ImGui::Button("idle")) {
 			for (MMDModel* model : models)
 				model->SetAnimation(idle, NULL);
-			if (cur_music)cur_music->stop();
-			cur_music = NULL;
+			if (Globals::cur_music)Globals::cur_music->stop();
+			Globals::cur_music = NULL;
 		}
 		for (int i = 0; i < animations.size(); i++) {
 			VMDAnimation* anim = animations[i];
@@ -201,8 +208,8 @@ int main() {
 			if (ImGui::Button(anim->filename.c_str())) {
 				for (MMDModel* model : models)
 					model->SetAnimation(anim, music);
-				if (cur_music)cur_music->stop();
-				cur_music = music;
+				if (Globals::cur_music)Globals::cur_music->stop();
+				Globals::cur_music = music;
 				music->play();
 			}
 		}

@@ -14,7 +14,7 @@ struct Mario {
 	GLuint color_buffer;
 	GLuint uv_buffer;
 
-	int gamepad;
+	int gamepad = -1;
 	float tick = 0;
 
 	Mario() {
@@ -77,15 +77,17 @@ struct Mario {
 
 	void Draw(Shader& shader, Camera& camera, float dt) {
 
-		GLFWgamepadstate state;
-		glfwGetGamepadState(gamepad, &state);
-		marioInputs.buttonA = state.buttons[GLFW_GAMEPAD_BUTTON_CROSS];
-		marioInputs.buttonB = state.buttons[GLFW_GAMEPAD_BUTTON_SQUARE];
-		marioInputs.buttonZ = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER];
-		marioInputs.stickX = read_axis(state.axes[GLFW_GAMEPAD_AXIS_LEFT_X]);
-		marioInputs.stickY = read_axis(state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y]);
-		marioInputs.camLookX = marioState.position[0] - camera.position.x;
-		marioInputs.camLookZ = marioState.position[2] - camera.position.z;
+		if (gamepad != -1) {
+			GLFWgamepadstate state;
+			glfwGetGamepadState(gamepad, &state);
+			marioInputs.buttonA = state.buttons[GLFW_GAMEPAD_BUTTON_CROSS];
+			marioInputs.buttonB = state.buttons[GLFW_GAMEPAD_BUTTON_SQUARE];
+			marioInputs.buttonZ = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER];
+			marioInputs.stickX = read_axis(state.axes[GLFW_GAMEPAD_AXIS_LEFT_X]);
+			marioInputs.stickY = read_axis(state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y]);
+			marioInputs.camLookX = marioState.position[0] - camera.position.x;
+			marioInputs.camLookZ = marioState.position[2] - camera.position.z;
+		}
 
 		tick += dt;
 		if (tick > 1 / 30.f) {

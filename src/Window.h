@@ -12,6 +12,13 @@ GLFWwindow* WindowInit() {
 	glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
 		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
+		else if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+			Globals::Paused = !Globals::Paused;
+			if (Globals::cur_music) {
+				if (Globals::Paused)Globals::cur_music->pause();
+				else Globals::cur_music->play();
+			}
+		}
 		});
 
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height) {
