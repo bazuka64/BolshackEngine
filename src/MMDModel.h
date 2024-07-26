@@ -117,6 +117,41 @@ struct MMDModel {
 		std::vector<VertexMorph> vertex_morphs;
 	};
 
+#pragma pack(1)
+	struct RigidBody {
+		Bone* bone;
+		char group;
+		ushort mask;
+		char shape; // 0:球 1:箱 2:カプセル
+		glm::vec3 size;
+		glm::vec3 position;
+		glm::vec3 rotation; // ラジアン角
+		float mass;
+		float linear_damping;
+		float angular_damping;
+		float restitution;
+		float friction;
+		char type; // 0:ボーン追従(static) 1:物理演算(dynamic) 2:物理演算 + Bone位置合わせ
+		btRigidBody* btBody;
+		glm::mat4 fromBone;
+		glm::mat4 fromBody;
+	};
+#pragma pack()
+
+	struct Joint {
+		char type; // 0:スプリング6DOF PMX2.0では0のみ
+		int bodyA;
+		int bodyB;
+		glm::vec3 position;
+		glm::vec3 rotation; // ラジアン角
+		glm::vec3 linear_lower_limit;
+		glm::vec3 linear_upper_limit;
+		glm::vec3 angular_lower_limit;
+		glm::vec3 angular_upper_limit;
+		glm::vec3 linear_spring_constant;
+		glm::vec3 angular_spring_constant;
+	};
+
 	GLuint vao, vbo, ibo, ubo, morph_vbo;
 
 	std::vector<Material> materials;
@@ -130,6 +165,9 @@ struct MMDModel {
 
 	std::vector<Morph> morphs;
 	std::vector<glm::vec3> morph_pos;
+
+	btDiscreteDynamicsWorld* dynamicsWorld;
+	std::vector<RigidBody> bodies;
 
 	VMDAnimation* anim = NULL;
 	float anim_frame = 0;
@@ -439,6 +477,194 @@ MMDModel::MMDModel(const fs::path& path) {
 
 	// display
 	int display_count = br.ReadInt();
+	for (int i = 0; i < display_count; i++) {
+		for (int i = 0; i < 2; i++) {
+			int size = br.ReadInt();
+			br.Seek(size);
+		}
+		br.Seek(1);
+		int element_count = br.ReadInt();
+		for (int j = 0; j < element_count; j++) {
+			char type = br.ReadChar();
+			br.Seek(type == 0 ? header.bone : header.morph);
+		}
+	}
+
+	// physics
+	auto configuration = new btDefaultCollisionConfiguration;
+	auto dispatcher = new btCollisionDispatcher(configuration);
+	auto overlappingPairCache = new btDbvtBroadphase;
+	auto solver = new btSequentialImpulseConstraintSolver;
+	dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, configuration);
+	dynamicsWorld->setGravity(btVector3(0, -10 * 10, 0));
+	DebugDrawer* drawer = new DebugDrawer();
+	dynamicsWorld->setDebugDrawer(drawer);
+
+	// rigidbody
+	int rigidbody_count = br.ReadInt();
+
+	bodies.resize(rigidbody_count);
+	for (RigidBody& body : bodies) {
+
+		// name
+		for (int i = 0; i < 2; i++) {
+			int size = br.ReadInt();
+			br.Seek(size);
+		}
+
+		int bone = br.ReadSize(header.bone);
+		if (bone != -1)body.bone = &bones[bone];
+		br.Read(&body.group, 1 + 2 + 1 + 12 + 12 + 12 + 4 + 4 + 4 + 4 + 4 + 1);
+
+		body.position.z *= -1;
+		body.rotation.x *= -1;
+		body.rotation.y *= -1;
+
+		btCollisionShape* shape = NULL;
+		switch (body.shape) {
+		case 0:
+			shape = new btSphereShape(body.size.x);
+			break;
+		case 1:
+			shape = new btBoxShape(btVector3(body.size.x, body.size.y, body.size.z));
+			break;
+		case 2:
+			shape = new btCapsuleShape(body.size.x, body.size.y);
+			break;
+		}
+
+		float mass = 0;
+		btVector3 localInertia(0, 0, 0);
+		if (body.type != 0) {
+			mass = body.mass;
+			shape->calculateLocalInertia(mass, localInertia);
+		}
+
+		glm::mat4 bodyTransform = glm::eulerAngleYXZ(
+			body.rotation.y,
+			body.rotation.x,
+			body.rotation.z
+		);
+		bodyTransform[3] = glm::vec4(body.position, 1);
+
+		btTransform transform;
+		transform.setFromOpenGLMatrix((float*)&bodyTransform);
+		auto motion = new btDefaultMotionState(transform);
+
+		btRigidBody::btRigidBodyConstructionInfo info(mass, motion, shape, localInertia);
+		info.m_friction = body.friction;
+		info.m_restitution = body.restitution;
+		info.m_linearDamping = body.linear_damping;
+		info.m_angularDamping = body.angular_damping;
+		body.btBody = new btRigidBody(info);
+
+		if (body.type == 0) {
+			body.btBody->setCollisionFlags(body.btBody->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+		}
+		body.btBody->setActivationState(DISABLE_DEACTIVATION);
+
+		dynamicsWorld->addRigidBody(body.btBody, 1 << body.group, body.mask);
+
+		// bone and rigid body positions are a little different
+		if (body.bone) {
+			body.fromBone = body.bone->InverseBindPose * bodyTransform;
+			body.fromBody = glm::inverse(body.fromBone);
+		}
+	}
+
+	// joint
+	int joint_count = br.ReadInt();
+	std::vector<Joint> joints(joint_count);
+	for (Joint& joint : joints) {
+
+		// name
+		for (int i = 0; i < 2; i++) {
+			int size = br.ReadInt();
+			br.Seek(size);
+		}
+
+		joint.type = br.ReadChar();
+		joint.bodyA = br.ReadSize(header.rigidbody);
+		joint.bodyB = br.ReadSize(header.rigidbody);
+		br.Read(&joint.position, 12 * 8);
+
+		joint.position.z *= -1;
+		joint.rotation.x *= -1;
+		joint.rotation.y *= -1;
+
+		if (joint.bodyA == joint.bodyB)continue;
+		RigidBody& bodyA = bodies[joint.bodyA];
+		RigidBody& bodyB = bodies[joint.bodyB];
+
+		btTransform transform;
+		transform.setOrigin(btVector3(
+			joint.position.x,
+			joint.position.y,
+			joint.position.z
+		));
+		btQuaternion rot;
+		rot.setEuler(
+			joint.rotation.y,
+			joint.rotation.x,
+			joint.rotation.z
+		);
+		transform.setRotation(rot);
+
+		btTransform frameInA = bodyA.btBody->getWorldTransform();
+		frameInA = frameInA.inverse() * transform;
+		btTransform frameInB = bodyB.btBody->getWorldTransform();
+		frameInB = frameInB.inverse() * transform;
+
+		auto constraint = new btGeneric6DofSpringConstraint(*bodyA.btBody, *bodyB.btBody, frameInA, frameInB, true);
+		dynamicsWorld->addConstraint(constraint);
+
+		constraint->setLinearLowerLimit(btVector3(
+			joint.linear_lower_limit.x,
+			joint.linear_lower_limit.y,
+			joint.linear_lower_limit.z
+		));
+		constraint->setLinearUpperLimit(btVector3(
+			joint.linear_upper_limit.x,
+			joint.linear_upper_limit.y,
+			joint.linear_upper_limit.z
+		));
+		constraint->setAngularLowerLimit(btVector3(
+			joint.angular_lower_limit.x,
+			joint.angular_lower_limit.y,
+			joint.angular_lower_limit.z
+		));
+		constraint->setAngularUpperLimit(btVector3(
+			joint.angular_upper_limit.x,
+			joint.angular_upper_limit.y,
+			joint.angular_upper_limit.z
+		));
+
+		// 胸の弾性を有効化
+		if (joint.linear_spring_constant.x != 0) {
+			constraint->enableSpring(0, true);
+			constraint->setStiffness(0, joint.linear_spring_constant.x);
+		}
+		if (joint.linear_spring_constant.y != 0) {
+			constraint->enableSpring(1, true);
+			constraint->setStiffness(1, joint.linear_spring_constant.y);
+		}
+		if (joint.linear_spring_constant.z != 0) {
+			constraint->enableSpring(2, true);
+			constraint->setStiffness(2, joint.linear_spring_constant.z);
+		}
+		if (joint.angular_spring_constant.x != 0) {
+			constraint->enableSpring(3, true);
+			constraint->setStiffness(3, joint.angular_spring_constant.x);
+		}
+		if (joint.angular_spring_constant.y != 0) {
+			constraint->enableSpring(4, true);
+			constraint->setStiffness(4, joint.angular_spring_constant.y);
+		}
+		if (joint.angular_spring_constant.z != 0) {
+			constraint->enableSpring(5, true);
+			constraint->setStiffness(5, joint.angular_spring_constant.z);
+		}
+	}
 }
 
 void MMDModel::Update(float dt) {
@@ -506,6 +732,34 @@ void MMDModel::Update(float dt) {
 			bone->Translation = bone->append_parent->Translation;
 		bone->UpdateLocalTransform();
 		bone->UpdateGlobalTransform(true);
+	}
+
+	// physics
+	if (Globals::Physics) {
+		for (RigidBody& body : bodies) {
+			// do kinematic
+			if (body.type != 0)continue;
+			if (!body.bone)continue;
+
+			btTransform transform;
+			glm::mat4 mat = body.bone->GlobalTransform * body.fromBone;
+			transform.setFromOpenGLMatrix((float*)&mat);
+			body.btBody->getMotionState()->setWorldTransform(transform);
+		}
+
+		dynamicsWorld->stepSimulation(dt);
+
+		for (RigidBody& body : bodies) {
+			// do dynamic
+			if (body.type == 0)continue;
+			if (!body.bone)continue;
+
+			btTransform transform;
+			body.btBody->getMotionState()->getWorldTransform(transform);
+			glm::mat4 mat;
+			transform.getOpenGLMatrix((float*)&mat);
+			body.bone->GlobalTransform = mat * body.fromBody;
+		}
 	}
 
 	for (int i = 0; i < bones.size(); i++)
@@ -636,19 +890,19 @@ void MMDModel::Draw(Shader& shader, Camera& camera) {
 
 	glEnable(GL_CULL_FACE);
 
-	if (Globals::IKBone)DrawIKBone(camera);
-	if (Globals::AABB) DrawAABB(camera);
-}
-
-void MMDModel::DrawIKBone(Camera& camera) {
-
 	glUseProgram(0);
-
 	glm::mat4 wv = camera.view * world;
 	glMatrixMode(GL_MODELVIEW);
 	glLoadMatrixf((float*)&wv);
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf((float*)&camera.proj);
+
+	if (Globals::IKBone)DrawIKBone(camera);
+	if (Globals::RigidBody)dynamicsWorld->debugDrawWorld();
+	if (Globals::AABB) DrawAABB(camera);
+}
+
+void MMDModel::DrawIKBone(Camera& camera) {
 
 	glLineWidth(4);
 	glDepthFunc(GL_ALWAYS);
@@ -681,14 +935,6 @@ void MMDModel::DrawAABB(Camera& camera) {
 		aabb.max = glm::max(glm::vec3(bone.GlobalTransform[3]), aabb.max);
 		aabb.min = glm::min(glm::vec3(bone.GlobalTransform[3]), aabb.min);
 	}
-
-	glUseProgram(0);
-
-	glm::mat4 wv = camera.view * world;
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf((float*)&wv);
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrixf((float*)&camera.proj);
 
 	glColor3f(0, 1, 0);
 	glLineWidth(4);

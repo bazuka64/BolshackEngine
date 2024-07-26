@@ -9,7 +9,12 @@ GLFWwindow* WindowInit() {
 	GLFWwindow* window = glfwCreateWindow(width, height, "", NULL, NULL);
 	glfwMakeContextCurrent(window);
 
+	glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height) {
+		glViewport(0, 0, width, height);
+		});
+
 	glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+
 		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
 		else if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
@@ -19,17 +24,17 @@ GLFWwindow* WindowInit() {
 				else Globals::cur_music->play();
 			}
 		}
+
 		});
 
-	glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height) {
-		glViewport(0, 0, width, height);
-		});
 
 	glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
+
 		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
 		});
 
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();

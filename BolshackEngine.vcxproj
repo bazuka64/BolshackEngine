@@ -139,6 +139,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AABB.h" />
+    <ClInclude Include="src\DebugDrawer.h" />
     <ClInclude Include="src\DisplayList.h" />
     <ClInclude Include="src\Fast3DScript.h" />
     <ClInclude Include="src\GeoScript.h" />

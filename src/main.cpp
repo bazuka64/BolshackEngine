@@ -16,12 +16,15 @@ namespace fs = std::filesystem;
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#define GLM_ENABLE_EXPERIMENTAL 
+#include <glm/gtx/euler_angles.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <SFML/Audio.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <bullet/btBulletDynamicsCommon.h>
 
 typedef unsigned char byte;
 typedef unsigned short ushort;
@@ -41,6 +44,7 @@ void printw(T x) { std::wcout << x << std::endl; }
 #include "AABB.h"
 #include "BinaryReader.h"
 #include "VMDAnimation.h"
+#include "DebugDrawer.h"
 #include "MMDModel.h"
 
 #include "libmio0.h"
@@ -178,6 +182,8 @@ int main() {
 				else Globals::cur_music->play();
 			}
 		}
+		ImGui::Checkbox("Physics", &Globals::Physics);
+		ImGui::Checkbox("RigidBody", &Globals::RigidBody);
 
 		if (rom) {
 			ImGui::Separator();
