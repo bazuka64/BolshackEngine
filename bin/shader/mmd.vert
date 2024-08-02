@@ -1,24 +1,28 @@
 #version 460
 
 layout (location = 0) in vec3 position;
-layout (location = 1) in vec2 uv;
-layout (location = 2) in ivec4 bones;
-layout (location = 3) in vec4 weights;
-layout (location = 4) in vec3 morph_pos;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 uv;
+layout (location = 3) in ivec4 bones;
+layout (location = 4) in vec4 weights;
 layout (location = 5) in int skinning_type;
 layout (location = 6) in vec3 center;
 layout (location = 7) in vec3 r0;
 layout (location = 8) in vec3 r1;
+layout (location = 9) in vec3 morph_pos;
 
+out vec3 fnormal;
 out vec2 fuv;
 
-uniform mat4 wvp;
+uniform mat4 mvp;
 
-uniform Buffer{
+layout(std140, binding = 0) uniform Buffer0{
 	mat4 FinalTransform[1]; // Œã‚ÅŽ©“®‚ÅŠg’£‚³‚ê‚é
 };
 
-uniform vec4 BoneRotation[300];
+layout(std140, binding = 1) uniform Buffer1{
+	vec4 BoneRotation[1];
+};
 
 mat3 quatToMat3(vec4 q) {
     float x2 = q.x + q.x;
@@ -53,6 +57,7 @@ vec4 slerp(vec4 q0, vec4 q1, float t) {
 
 void main(){
 	
+	fnormal = normal;
 	fuv = uv;
 
 	mat4 skinned = mat4(1);
@@ -75,9 +80,9 @@ void main(){
 		vec3 skinned_pos = rot_mat * (position - center) + 
 				vec3(FinalTransform[bones[0]] * vec4(r0,1))*weights[0] +
 				vec3(FinalTransform[bones[1]] * vec4(r1,1))*weights[1];
-		gl_Position = wvp * vec4(skinned_pos,1);
+		gl_Position = mvp * vec4(skinned_pos,1);
 		return;
 	}
 
-	gl_Position = wvp * skinned * vec4(position + morph_pos, 1);
+	gl_Position = mvp * skinned * vec4(position + morph_pos, 1);
 }

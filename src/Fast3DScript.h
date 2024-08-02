@@ -7,10 +7,10 @@ struct Fast3DScript : Script {
 		if (debug)Script::print(str, cmd, 8);
 	}
 
-	static DisplayList* parse(ROM& rom, byte seg, uint off) {
+	static DisplayList* parse(ROM* rom, byte seg, uint off) {
 		DisplayList* dl = new DisplayList();
 
-		byte* cmd = rom.segments[seg].data() + off;
+		byte* cmd = rom->segments[seg].data() + off;
 
 		struct F3DVertex {
 			short x, y, z, f, u, v;
@@ -32,7 +32,7 @@ struct Fast3DScript : Script {
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
 
-				byte* ptr = rom.segments[seg].data() + off;
+				byte* ptr = rom->segments[seg].data() + off;
 
 				for (int i = 0; i < num; i++) {
 					buffer[dest_off + i].x = Read(ptr, 0, 2);
@@ -54,12 +54,12 @@ struct Fast3DScript : Script {
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
 
-				if (rom.segments.count(seg) == 0)break;
+				if (rom->segments.count(seg) == 0)break;
 				if (seg == 0x00 && off == 0x000000)break;
 
 				if (cmd[1] == 0x00)
 					ret_addr.push(cmd + 8);
-				cmd = rom.segments[seg].data() + off;
+				cmd = rom->segments[seg].data() + off;
 				continue;
 			}
 			case 0xb8: print("gsSPEndDisplayList", cmd);
@@ -110,9 +110,9 @@ struct Fast3DScript : Script {
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
 
-				if (rom.segments.count(seg) == 0)break;
+				if (rom->segments.count(seg) == 0)break;
 
-				byte* texture_address = rom.segments[seg].data() + off;
+				byte* texture_address = rom->segments[seg].data() + off;
 				dl->textures.push_back(new Texture(texture_address, width, height));
 
 				dl->meshes.push_back({});

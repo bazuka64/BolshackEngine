@@ -34,7 +34,7 @@ struct VMDAnimation {
 
 			std::string name(15, 0);
 			br.Read(name.data(), 15);
-			if (bone_name_map.count(name) == 0) {
+			if (!bone_name_map.contains(name)) {
 				std::wstring wstr(15, 0);
 				int size = MultiByteToWideChar(CP_ACP, 0, name.c_str(), -1, wstr.data(), 15);
 				wstr.resize(size - 1); // erase null terminator
@@ -55,8 +55,9 @@ struct VMDAnimation {
 			max_frame = std::max(max_frame, bf.frame);
 		}
 
-		for (auto& [name, bone_frames] : bone_map) {
-			std::sort(bone_frames.begin(), bone_frames.end(),
+		for (std::pair<const std::wstring, std::vector<BoneFrame>>& pair : bone_map) {
+
+			std::sort(pair.second.begin(), pair.second.end(),
 				[](BoneFrame& a, BoneFrame& b) {
 					return a.frame < b.frame;
 				});
@@ -68,7 +69,7 @@ struct VMDAnimation {
 
 			std::string name(15, 0);
 			br.Read(name.data(), 15);
-			if (morph_name_map.count(name) == 0) {
+			if (!morph_name_map.contains(name)) {
 				std::wstring wstr(15, 0);
 				int size = MultiByteToWideChar(CP_ACP, 0, name.c_str(), -1, wstr.data(), 15);
 				wstr.resize(size - 1); // erase null terminator
@@ -84,8 +85,9 @@ struct VMDAnimation {
 			max_frame = std::max(max_frame, mf.frame);
 		}
 
-		for (auto& [name, morph_frames] : morph_map) {
-			std::sort(morph_frames.begin(), morph_frames.end(),
+		for (std::pair<const std::wstring, std::vector<MorphFrame>>& pair : morph_map) {
+
+			std::sort(pair.second.begin(), pair.second.end(),
 				[](MorphFrame& a, MorphFrame& b) {
 					return a.frame < b.frame;
 				});

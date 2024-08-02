@@ -19,7 +19,7 @@ struct Mario {
 
 	Mario() {
 
-		std::vector<byte> bytes = File::ReadAllBytes("res/roms/sm64.z64");
+		std::vector<byte> bytes = File::ReadAllBytes(Globals::sm64_path);
 
 		byte* outTexture = new byte[4 * SM64_TEXTURE_WIDTH * SM64_TEXTURE_HEIGHT];
 		sm64_global_init(bytes.data(), outTexture);
@@ -75,7 +75,7 @@ struct Mario {
 			if (glfwJoystickIsGamepad(i))gamepad = i;
 	}
 
-	void Draw(Shader& shader, Camera& camera, float dt) {
+	void Draw(Shader* shader, Camera* camera, float dt) {
 
 		if (gamepad != -1) {
 			GLFWgamepadstate state;
@@ -85,8 +85,8 @@ struct Mario {
 			marioInputs.buttonZ = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER];
 			marioInputs.stickX = read_axis(state.axes[GLFW_GAMEPAD_AXIS_LEFT_X]);
 			marioInputs.stickY = read_axis(state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y]);
-			marioInputs.camLookX = marioState.position[0] - camera.position.x;
-			marioInputs.camLookZ = marioState.position[2] - camera.position.z;
+			marioInputs.camLookX = marioState.position[0] - camera->position.x;
+			marioInputs.camLookZ = marioState.position[2] - camera->position.z;
 		}
 
 		tick += dt;
@@ -104,9 +104,9 @@ struct Mario {
 		glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
 		glBufferData(GL_ARRAY_BUFFER, 3 * sizeof(float) * 3 * marioGeometry.numTrianglesUsed, marioGeometry.uv, GL_DYNAMIC_DRAW);
 
-		shader.Use();
-		glm::mat4 WVP = camera.proj * camera.view;
-		glUniformMatrix4fv(shader.uniforms["WVP"], 1, false, (float*)&WVP);
+		shader->Use();
+		glm::mat4 WVP = camera->proj * camera->view;
+		glUniformMatrix4fv(shader->uniforms["WVP"], 1, false, (float*)&WVP);
 		glBindVertexArray(vao);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glDrawArrays(GL_TRIANGLES, 0, marioGeometry.numTrianglesUsed * 3);

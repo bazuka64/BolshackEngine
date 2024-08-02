@@ -25,12 +25,12 @@ struct LevelScript : Script {
 		if (debug)Script::print(str, cmd, cmd[1]);
 	}
 
-	static Level* parse(ROM& rom, int levelID) {
-		Level* level = new Level();
+	static Level* parse(ROM* rom, int levelID) {
+		Level* level = new Level;
 
-		rom.SetSegment(0x15, 0x2ABCA0, 0x2AC6B0);
-		rom.SetSegmentMIO0(0x02, 0x108A40, 0x114750);
-		byte* cmd = rom.segments[0x15].data();
+		rom->SetSegment(0x15, 0x2ABCA0, 0x2AC6B0);
+		rom->SetSegmentMIO0(0x02, 0x108A40, 0x114750);
+		byte* cmd = rom->segments[0x15].data();
 
 		Area* cur_area = NULL;
 
@@ -47,11 +47,11 @@ struct LevelScript : Script {
 
 				uint start = Read(cmd, 4, 4);
 				uint end = Read(cmd, 8, 4);
-				rom.SetSegment(seg, start, end);
+				rom->SetSegment(seg, start, end);
 
 				byte seg_jump = cmd[12];
 				uint off = Read(cmd, 13, 3);
-				cmd = rom.segments[seg_jump].data() + off;
+				cmd = rom->segments[seg_jump].data() + off;
 				continue;
 			}
 			case 0x02: print("END", cmd);
@@ -64,7 +64,7 @@ struct LevelScript : Script {
 			{
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
-				cmd = rom.segments[seg].data() + off;
+				cmd = rom->segments[seg].data() + off;
 				continue;
 			}
 			case 0x06: print("JUMP_LINK", cmd);
@@ -72,7 +72,7 @@ struct LevelScript : Script {
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
 				ret_addr.push(cmd + len);
-				cmd = rom.segments[seg].data() + off;
+				cmd = rom->segments[seg].data() + off;
 				continue;
 			}
 			case 0x07: print("RETURN", cmd);
@@ -85,7 +85,7 @@ struct LevelScript : Script {
 				if (arg == levelID) {
 					byte seg = cmd[8];
 					uint off = Read(cmd, 9, 3);
-					cmd = rom.segments[seg].data() + off;
+					cmd = rom->segments[seg].data() + off;
 					continue;
 				}
 			}
@@ -98,8 +98,8 @@ struct LevelScript : Script {
 				byte seg = cmd[3];
 				uint start = Read(cmd, 4, 4);
 				uint end = Read(cmd, 8, 4);
-				if (cmd[0] == 0x17)rom.SetSegment(seg, start, end);
-				else rom.SetSegmentMIO0(seg, start, end);
+				if (cmd[0] == 0x17)rom->SetSegment(seg, start, end);
+				else rom->SetSegmentMIO0(seg, start, end);
 			}
 			break;
 			case 0x1f: print("AREA", cmd);

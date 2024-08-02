@@ -35,13 +35,13 @@ struct DisplayList {
 		vertices.clear();
 	}
 
-	void Draw(Shader& shader) {
+	void Draw(Shader* shader) {
 
 		// LAYER_TRANSPARENT_DECAL 6 の場合、木の陰は非表示
 		// LAYER_OPAQUE_DECAL      2 の場合、ドアの周りは非表示
 		if (layer == 6 || layer == 2)return;
 
-		shader.Use();
+		shader->Use();
 		glBindVertexArray(vao);
 
 		for (int i = 0; i < meshes.size(); i++) {

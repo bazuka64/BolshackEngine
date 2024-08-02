@@ -110,6 +110,10 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>libsm64</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -136,6 +140,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AABB.h" />
@@ -147,6 +154,7 @@
     <ClInclude Include="src\LevelScript.h" />
     <ClInclude Include="src\libmio0.h" />
     <ClInclude Include="src\Mario.h" />
+    <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\ROM.h" />
     <ClInclude Include="src\BinaryReader.h" />
     <ClInclude Include="src\Camera.h" />

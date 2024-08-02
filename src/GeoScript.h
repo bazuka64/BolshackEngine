@@ -3,7 +3,7 @@
 struct Model3D {
 	std::vector<DisplayList*> dls;
 
-	void Draw(Shader& shader) {
+	void Draw(Shader* shader) {
 		for (DisplayList* dl : dls) {
 			dl->Draw(shader);
 		}
@@ -17,10 +17,10 @@ struct GeoScript : Script {
 		if (debug)Script::print(str, cmd, len);
 	}
 
-	static Model3D* parse(ROM& rom, byte seg, uint off) {
+	static Model3D* parse(ROM* rom, byte seg, uint off) {
 		Model3D* model = new Model3D();
 
-		byte* cmd = rom.segments[seg].data() + off;
+		byte* cmd = rom->segments[seg].data() + off;
 
 		bool end = false;
 		std::stack<byte*> ret_addr;
@@ -34,7 +34,7 @@ struct GeoScript : Script {
 				byte seg = cmd[4];
 				uint off = Read(cmd, 5, 3);
 				ret_addr.push(cmd + get_cmd_len(cmd));
-				cmd = rom.segments[seg].data() + off;
+				cmd = rom->segments[seg].data() + off;
 				continue;
 			}
 			case 0x01: print("GEO_END", cmd, len);
@@ -46,7 +46,7 @@ struct GeoScript : Script {
 				uint off = Read(cmd, 5, 3);
 				if (cmd[1] == 0x01)
 					ret_addr.push(cmd + get_cmd_len(cmd));
-				cmd = rom.segments[seg].data() + off;
+				cmd = rom->segments[seg].data() + off;
 				continue;
 			}
 			case 0x03: print("GEO_RETURN", cmd, len);

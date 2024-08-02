@@ -19,11 +19,12 @@ struct ROM {
 	}
 
 	void SetSegmentMIO0(byte seg, uint start, uint end) {
+
 		mio0_header_t head;
-		byte* in_buf = (byte*)&bytes[start];
+		byte* in_buf = &bytes[start];
 		mio0_decode_header(in_buf, &head);
 		std::vector<byte> segment(head.dest_size);
-		mio0_decode(in_buf, (byte*)segment.data());
+		mio0_decode(in_buf, segment.data());
 
 		segments[seg] = std::move(segment);
 	}

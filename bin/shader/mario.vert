@@ -8,10 +8,10 @@ layout(location = 3) in vec2 uv;
 out vec3 fcolor;
 out vec2 fuv;
 
-uniform mat4 wvp;
+uniform mat4 mvp;
 
 void main(){
-	gl_Position = wvp * vec4(position, 1);
+	gl_Position = mvp * vec4(position, 1);
 	fcolor = color;
 	fuv = uv;
 }
