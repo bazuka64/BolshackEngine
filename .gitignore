@@ -1,4 +1,4 @@
-bin/res/roms/*.z64
+bin/res/rom/*.z64
 .vs/
 *.user
 int/
