@@ -10,13 +10,13 @@ typedef struct {
 	unsigned int uncomp_offset;
 } mio0_header_t;
 
-void mio0_decode_header(const unsigned char* buf, mio0_header_t* head) {
+inline void mio0_decode_header(const unsigned char* buf, mio0_header_t* head) {
 	head->dest_size = read_u32_be(&buf[4]);
 	head->comp_offset = read_u32_be(&buf[8]);
 	head->uncomp_offset = read_u32_be(&buf[12]);
 }
 
-void mio0_decode(const unsigned char* in, unsigned char* out) {
+inline void mio0_decode(const unsigned char* in, unsigned char* out) {
 
 	mio0_header_t head;
 	unsigned int bytes_written = 0;

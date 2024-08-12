@@ -11,6 +11,8 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#include <Windows.h>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -23,8 +25,7 @@ namespace fs = std::filesystem;
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <bullet/btBulletDynamicsCommon.h>
-
-#include <Windows.h>
+#include <stb_image.h>
 
 #include <libsm64.h>
 
@@ -36,3 +37,13 @@ template <typename T>
 void print(T x) { std::cout << x << std::endl; }
 template <typename T>
 void printw(T x) { std::wcout << x << std::endl; }
+
+#include "File.h"
+#include "Shader.h"
+#include "Texture.h"
+#include "BinaryReader.h"
+#include "Camera.h"
+#include "DebugDrawer.h"
+#include "Globals.h"
+#include "VMDAnimation.h"
+#include "AABB.h"
